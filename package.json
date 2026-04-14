@@ -1,0 +1,24 @@
+{
+  "name": "nanoauth",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "packageManager": "bun@1.3.11",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "check-types": "tsc --noEmit",
+    "build": "turbo run build",
+    "dev": "turbo run dev"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/node": "latest",
+    "turbo": "^2.9.6"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  }
+}
