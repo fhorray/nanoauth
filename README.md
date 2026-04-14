@@ -15,7 +15,7 @@ Unlike bloated full-stack mono-libraries that try to insert their own rigid data
 - **✨ 100% Type-Safe**: Built from the ground up with TypeScript Generics. If your user has a custom `subscriptionStatus` field, all NanoAuth hooks and plugins will know about it. No more `any` types!
 - **🧩 Pluggable Architecture**: Only bundle what you use. Need Email/Password? Add the plugin. Need Session Management? Add the plugin. Need OAuth? You guessed it.
 - **⚡ Reactive Events & Interceptors**: Hook into the exact lifecycle of your authentication to trigger emails (`afterSignup`) or intercept database saves (`onSaveSession`).
-- **🔥 Native Integrations**: Tired of writing HTTP boilerplate? Use our official wrappers (like `nanoauth/hono`) to auto-generate all authentication endpoints securely and effortlessly.
+- **🔥 Generic Web Handler**: Tired of writing HTTP boilerplate? Use our built-in `auth.handler(request)` that automatically generates all authentication endpoints for any modern framework (Next.js, Cloudflare Workers, Hono, Bun, etc.).
 
 ---
 
@@ -227,15 +227,14 @@ hooks: {
 
 ---
 
-## 🔥 Native Hono Integration (Zero Boilerplate!)
+## 🔥 Generic Web Framework Integration (Zero Boilerplate!)
 
-Tired of writing `/auth/login` and `/auth/signup` controllers? Let our official wrapper handle the HTTP layer, cookies, and OAuth redirects automatically.
+Tired of writing `/auth/login` and `/auth/signup` controllers? Let our built-in Web Standard Handler process standard Fetch `Request` objects automatically.
 
 ```typescript
-// server.ts
+// Example using Hono, but works the same in Next.js, Cloudflare, or Bun!
 import { Hono } from 'hono';
-import { nanoauthHono } from 'nanoauth/hono';
-import { auth } from './auth';
+import { auth } from './auth'; // Your NanoAuth instance
 
 const app = new Hono();
 
@@ -246,13 +245,7 @@ const app = new Hono();
 // GET  /api/auth/session
 // GET  /api/auth/signin/:provider  (OAuth Redirects)
 // GET  /api/auth/callback/:provider (OAuth Handshake)
-app.route(
-  '/api/auth',
-  nanoauthHono(auth, {
-    successRedirect: '/dashboard', // Where to go after OAuth?
-    errorRedirect: '/login?error=true',
-  }),
-);
+app.all('/api/auth/*', (c) => auth.handler(c.req.raw));
 
 export default app;
 ```
