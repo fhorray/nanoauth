@@ -29,8 +29,8 @@ describe('NanoAuth Declarative Factory', () => {
     let eventData: any = null
     const auth = createAuth(dummyAdapter) as any
 
-    auth.on('afterLogin', (data: any) => { eventData = data })
-    auth.emit('afterLogin', { user: { id: '1' }, token: 'abc' })
+    auth.on('afterSignin', (data: any) => { eventData = data })
+    auth.emit('afterSignin', { user: { id: '1' }, token: 'abc' })
     expect(eventData).toEqual({ user: { id: '1' }, token: 'abc' })
   })
 

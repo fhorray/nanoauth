@@ -116,7 +116,7 @@ auth.on('beforeLogin', (credentials) => {
   console.log('Tentando login...');
 });
 
-auth.on('afterLogin', (user) => {
+auth.on('afterSignin', (user) => {
   console.log('Login bem-sucedido!');
 });
 
@@ -181,7 +181,7 @@ export function emailPasswordPlugin(config: EmailPasswordConfig): Plugin {
           auth.setState('token', token);
           auth.setState('isLoading', false);
 
-          auth.emit('afterLogin', { user, token });
+          auth.emit('afterSignin', { user, token });
           return user;
         } catch (error) {
           auth.setState('error', error as Error);
@@ -192,11 +192,7 @@ export function emailPasswordPlugin(config: EmailPasswordConfig): Plugin {
       };
 
       // Método signup
-      auth.signup = async (
-        email: string,
-        password: string,
-        name: string,
-      ) => {
+      auth.signup = async (email: string, password: string, name: string) => {
         try {
           auth.setState('isLoading', true);
 
@@ -219,7 +215,7 @@ export function emailPasswordPlugin(config: EmailPasswordConfig): Plugin {
           auth.setState('token', token);
           auth.setState('isLoading', false);
 
-          auth.emit('afterLogin', { user, token });
+          auth.emit('afterSignin', { user, token });
           return user;
         } catch (error) {
           auth.setState('error', error as Error);
@@ -547,7 +543,7 @@ export function oauthPlugin(config: OAuthConfig): Plugin {
           auth.setState('token', token);
           auth.setState('isLoading', false);
 
-          auth.emit('afterLogin', { user, token });
+          auth.emit('afterSignin', { user, token });
           return user;
         } catch (error) {
           auth.setState('error', error as Error);
@@ -707,7 +703,7 @@ export function sessionPlugin(config: SessionConfig): Plugin {
       };
 
       // Hooks
-      auth.on('afterLogin', ({ token }) => {
+      auth.on('afterSignin', ({ token }) => {
         saveToken(token);
       });
 
@@ -801,7 +797,7 @@ export function customLoggerPlugin(): Plugin {
         console.log(`[AUTH] Tentando login com ${email}`);
       });
 
-      auth.on('afterLogin', ({ user }) => {
+      auth.on('afterSignin', ({ user }) => {
         console.log(`[AUTH] Login bem-sucedido: ${user.email}`);
       });
 
@@ -927,7 +923,7 @@ auth.use(
 );
 
 // 4. Hooks customizados (sem plugins)
-auth.on('afterLogin', ({ user }) => {
+auth.on('afterSignin', ({ user }) => {
   console.log('✅ Login:', user.email);
 });
 

@@ -109,7 +109,7 @@ export const auth = nanoauth({
   ],
 
   hooks: {
-    afterLogin: ({ user, provider }) => {
+    afterSignin: ({ user, provider }) => {
       const method = provider ? `Social (${provider})` : 'Credentials';
       console.log(`\n[AUTH HOOK] ✅ Login Successful: ${user.email} via ${method}`);
     },

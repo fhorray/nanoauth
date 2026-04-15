@@ -55,7 +55,7 @@ export function sessionPlugin<TUser extends User = User>(config: SessionConfig<T
 
     async setup(auth: AuthCoreInstance<TUser>) {
       // Save token when user logs in
-      auth.on('afterLogin', async ({ token }: any) => {
+      auth.on('afterSignin', async ({ token }: any) => {
         if (token) {
           saveToken(token)
         }

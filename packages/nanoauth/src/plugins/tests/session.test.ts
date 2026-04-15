@@ -126,18 +126,18 @@ describe('Session Plugin', () => {
       expect(hookCalled || true).toBe(true); // Hook setup verified
     });
 
-    it('should trigger afterLogin hook', async () => {
-      let afterLoginCalled = false;
+    it('should trigger afterSignin hook', async () => {
+      let afterSigninCalled = false;
       const auth = createAuth(mockAdapter, {});
 
-      auth.on('afterLogin', () => {
-        afterLoginCalled = true;
+      auth.on('afterSignin', () => {
+        afterSigninCalled = true;
       });
 
-      auth.emit('afterLogin', {});
+      auth.emit('afterSignin', {});
 
       await new Promise(resolve => setTimeout(resolve, 10));
-      expect(afterLoginCalled).toBe(true);
+      expect(afterSigninCalled).toBe(true);
     });
 
     it('should trigger afterLogout hook', async () => {

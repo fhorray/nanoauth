@@ -165,7 +165,7 @@ export function oauthPlugin<TUser extends User = User>(config: OAuthConfig<TUser
             auth.setState('error', null)
             auth.setState('isLoading', false)
 
-            auth.emit('afterLogin', { user, token, provider })
+            auth.emit('afterSignin', { user, token, provider })
 
             return user
           } catch (error) {

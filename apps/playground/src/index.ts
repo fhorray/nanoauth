@@ -22,7 +22,7 @@ app.all('/api/auth/*', (c) => auth.handler(c.req.raw));
  * DYNAMIC LISTENERS DEMONSTRATION 🎧
  * You can attach listeners anywhere, not just in the config hooks!
  */
-auth.on('afterLogin', ({ user, provider }) => {
+auth.on('afterSignin', ({ user, provider }) => {
    const method = provider ? `Social (${provider})` : 'Credentials';
    console.log(`\n[DYNAMIC LISTENER] 🟢 User ${user.email} just signed in via ${method}!`);
 });
@@ -238,6 +238,11 @@ app.get('/dashboard', async (c) => {
       return c.redirect('/signin');
    }
 });
+
+app.get("/magic", async c => {
+   await auth.sendMagicLink("test@example.com")
+   return c.json({ success: true })
+})
 
 app.route('/api', apiRoutes);
 

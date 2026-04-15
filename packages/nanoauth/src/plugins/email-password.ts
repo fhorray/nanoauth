@@ -71,7 +71,7 @@ export function emailPasswordPlugin<TUser extends User = User>(config: EmailPass
           auth.setState('error', null)
           auth.setState('isLoading', false)
 
-          auth.emit('afterLogin', { user, token })
+          auth.emit('afterSignin', { user, token })
           return user
         } catch (error) {
           auth.setState('error', error as Error)

@@ -61,39 +61,39 @@
  */
 export interface AuthAdapter {
   // Buscar usuário (pode vir de API, DB, qualquer lugar)
-  getUser(userId: string): Promise<User | null>
+  getUser(userId: string): Promise<User | null>;
 
   // Salvar sessão (localStorage, sessionStorage, cookie, seu backend, etc)
-  saveSession(sessionId: string, data: SessionData): Promise<void>
+  saveSession(sessionId: string, data: SessionData): Promise<void>;
 
   // Validar token (JWT, OAuth, seu sistema, qualquer coisa)
-  validateToken(token: string): Promise<boolean>
+  validateToken(token: string): Promise<boolean>;
 
   // Deletar sessão
-  deleteSession(sessionId: string): Promise<void>
+  deleteSession(sessionId: string): Promise<void>;
 
   // [CUSTOMIZÁVEL] Qualquer método que você precisar
-  [key: string]: any
+  [key: string]: any;
 }
 
 /**
  * Estado que você pode customizar
  */
 export interface AuthState {
-  user: User | null
-  isLoading: boolean
-  error: Error | null
-  token: string | null
+  user: User | null;
+  isLoading: boolean;
+  error: Error | null;
+  token: string | null;
   // Adicione seus próprios campos!
-  metadata: Record<string, any>
+  metadata: Record<string, any>;
 }
 
 /**
  * Interface de plugins (extensibilidade)
  */
 export interface Plugin {
-  name: string
-  setup(auth: AuthCore): void | Promise<void>
+  name: string;
+  setup(auth: AuthCore): void | Promise<void>;
 }
 
 /**
@@ -101,15 +101,15 @@ export interface Plugin {
  * O usuário não precisa conhecer os detalhes
  */
 export class AuthCore {
-  private state: Map<string, any> = new Map()
-  private observers: Map<string, Set<Function>> = new Map()
-  private hooks: Map<string, Function[]> = new Map()
+  private state: Map<string, any> = new Map();
+  private observers: Map<string, Set<Function>> = new Map();
+  private hooks: Map<string, Function[]> = new Map();
 
   // Inicializar com adapter customizado
   constructor(adapter: AuthAdapter, config?: Partial<AuthConfig>) {
-    this.adapter = adapter
-    this.config = config ?? {}
-    this.initializeDefaultState()
+    this.adapter = adapter;
+    this.config = config ?? {};
+    this.initializeDefaultState();
   }
 
   // ====== API PÚBLICA ======
@@ -120,30 +120,30 @@ export class AuthCore {
    */
   onChange(key: string, callback: (value: any) => void): () => void {
     if (!this.observers.has(key)) {
-      this.observers.set(key, new Set())
+      this.observers.set(key, new Set());
     }
-    this.observers.get(key)!.add(callback)
+    this.observers.get(key)!.add(callback);
 
     // Retornar unsubscribe
     return () => {
-      this.observers.get(key)?.delete(callback)
-    }
+      this.observers.get(key)?.delete(callback);
+    };
   }
 
   /**
    * Obter estado atual
    */
   async getState<T = any>(key: string): Promise<T | undefined> {
-    return this.state.get(key) as T | undefined
+    return this.state.get(key) as T | undefined;
   }
 
   /**
    * Atualizar estado (interno para plugins)
    */
   protected setState(key: string, value: any): void {
-    this.state.set(key, value)
+    this.state.set(key, value);
     // Notificar observers
-    this.observers.get(key)?.forEach((callback) => callback(value))
+    this.observers.get(key)?.forEach((callback) => callback(value));
   }
 
   /**
@@ -151,38 +151,38 @@ export class AuthCore {
    */
   on(event: string, callback: Function): void {
     if (!this.hooks.has(event)) {
-      this.hooks.set(event, [])
+      this.hooks.set(event, []);
     }
-    this.hooks.get(event)!.push(callback)
+    this.hooks.get(event)!.push(callback);
   }
 
   /**
    * Disparar hooks (para plugins)
    */
   protected emit(event: string, ...args: any[]): void {
-    this.hooks.get(event)?.forEach((callback) => callback(...args))
+    this.hooks.get(event)?.forEach((callback) => callback(...args));
   }
 
   /**
    * Adicionar plugin
    */
   use(plugin: Plugin): this {
-    plugin.setup(this)
-    return this // Para chain
+    plugin.setup(this);
+    return this; // Para chain
   }
 
   // ====== MÉTODOS PADRÃO (que plugins implementam) ======
 
   async login(credentials: any): Promise<User> {
-    throw new Error('Plugin not installed: email-password or oauth')
+    throw new Error('Plugin not installed: email-password or oauth');
   }
 
   async logout(): Promise<void> {
-    throw new Error('Plugin not installed: session')
+    throw new Error('Plugin not installed: session');
   }
 
   async signup(data: any): Promise<User> {
-    throw new Error('Plugin not installed: email-password')
+    throw new Error('Plugin not installed: email-password');
   }
 
   // ====== CUSTOMIZAÇÃO PARA PLUGINS ======
@@ -190,11 +190,14 @@ export class AuthCore {
   /**
    * Plugins podem adicionar métodos dinamicamente
    */
-  [key: string]: any
+  [key: string]: any;
 }
 
-export function createAuth(adapter: AuthAdapter, config?: Partial<AuthConfig>): AuthCore {
-  return new AuthCore(adapter, config)
+export function createAuth(
+  adapter: AuthAdapter,
+  config?: Partial<AuthConfig>,
+): AuthCore {
+  return new AuthCore(adapter, config);
 }
 ```
 
@@ -218,7 +221,7 @@ A ideia é que **você não importa plugins, você os cria**. NanoAuth fornece u
 ```typescript
 // plugins/seu-plugin.ts
 
-import { Plugin, AuthCore } from 'nanoauth'
+import { Plugin, AuthCore } from 'nanoauth';
 
 interface SeuPluginConfig {
   // suas opções
@@ -230,29 +233,29 @@ export function seuPlugin(config: SeuPluginConfig): Plugin {
 
     async setup(auth: AuthCore) {
       // 1. Adicionar métodos
-      ;auth.seuMetodo = async (param: string) => {
+      auth.seuMetodo = async (param: string) => {
         // sua lógica
-      }
+      };
 
       // 2. Ouvir eventos
-      auth.on('afterLogin', async ({ user, token }) => {
+      auth.on('afterSignin', async ({ user, token }) => {
         // reagir a login
-      })
+      });
 
       // 3. Observar estado
       const unsub = auth.onChange('user', (newUser) => {
         // reagir a mudanças
-      })
+      });
 
       // 4. Adicionar hooks
       auth.on('beforeLogout', async () => {
         // antes de logout
-      })
+      });
 
       // 5. Adicionar estado customizado
-      auth.setState('meuEstado', {})
-    }
-  }
+      auth.setState('meuEstado', {});
+    },
+  };
 }
 ```
 
@@ -261,25 +264,25 @@ export function seuPlugin(config: SeuPluginConfig): Plugin {
 ```typescript
 // plugins/email-password-custom.ts
 
-import { Plugin, AuthCore } from 'nanoauth'
+import { Plugin, AuthCore } from 'nanoauth';
 
 interface EmailPluginConfig {
   // VOCÊ DECIDE TUDO!
-  minPasswordLength?: number
-  requireSpecialChar?: boolean
-  requireNumbers?: boolean
-  requireUppercase?: boolean
-  validateEmail?: (email: string) => boolean
-  hashPassword: (password: string) => Promise<string>
-  comparePassword: (password: string, hash: string) => Promise<boolean>
+  minPasswordLength?: number;
+  requireSpecialChar?: boolean;
+  requireNumbers?: boolean;
+  requireUppercase?: boolean;
+  validateEmail?: (email: string) => boolean;
+  hashPassword: (password: string) => Promise<string>;
+  comparePassword: (password: string, hash: string) => Promise<boolean>;
   // Aqui você conecta ao SEU banco de dados
   userRepository: {
-    findByEmail(email: string): Promise<User | null>
-    create(user: User): Promise<User>
-    updatePassword(userId: string, hash: string): Promise<void>
+    findByEmail(email: string): Promise<User | null>;
+    create(user: User): Promise<User>;
+    updatePassword(userId: string, hash: string): Promise<void>;
     // adicione o que precisar!
-    [key: string]: any
-  }
+    [key: string]: any;
+  };
 }
 
 export function emailPasswordPlugin(config: EmailPluginConfig): Plugin {
@@ -288,63 +291,66 @@ export function emailPasswordPlugin(config: EmailPluginConfig): Plugin {
 
     async setup(auth: AuthCore) {
       // Implementar login
-      ;auth.login = async (email: string, password: string) => {
+      auth.login = async (email: string, password: string) => {
         try {
-          auth.setState('isLoading', true)
-          auth.emit('beforeLogin', { email })
+          auth.setState('isLoading', true);
+          auth.emit('beforeLogin', { email });
 
           // Validação customizada
           if (config.validateEmail && !config.validateEmail(email)) {
-            throw new Error('Email inválido')
+            throw new Error('Email inválido');
           }
 
           // Buscar usuário do SEU repositório
-          const user = await config.userRepository.findByEmail(email)
+          const user = await config.userRepository.findByEmail(email);
           if (!user) {
-            throw new Error('Usuário não encontrado')
+            throw new Error('Usuário não encontrado');
           }
 
           // Comparar senha usando SEU método
-          const isValid = await config.comparePassword(password, user.passwordHash)
+          const isValid = await config.comparePassword(
+            password,
+            user.passwordHash,
+          );
           if (!isValid) {
-            throw new Error('Senha incorreta')
+            throw new Error('Senha incorreta');
           }
 
           // Atualizar estado
-          const token = seu_generateToken(user) // seu método!
-          auth.setState('user', user)
-          auth.setState('token', token)
-          auth.setState('isLoading', false)
+          const token = seu_generateToken(user); // seu método!
+          auth.setState('user', user);
+          auth.setState('token', token);
+          auth.setState('isLoading', false);
 
-          auth.emit('afterLogin', { user, token })
-          return user
+          auth.emit('afterSignin', { user, token });
+          return user;
         } catch (error) {
-          auth.setState('error', error as Error)
-          auth.setState('isLoading', false)
-          auth.emit('onError', error)
-          throw error
+          auth.setState('error', error as Error);
+          auth.setState('isLoading', false);
+          auth.emit('onError', error);
+          throw error;
         }
-      }
+      };
 
       // Implementar signup
-      ;auth.signup = async (email: string, password: string, name: string) => {
+      auth.signup = async (email: string, password: string, name: string) => {
         try {
-          auth.setState('isLoading', true)
+          auth.setState('isLoading', true);
 
           // Validar se email já existe
-          const exists = await config.userRepository.findByEmail(email)
+          const exists = await config.userRepository.findByEmail(email);
           if (exists) {
-            throw new Error('Email já registrado')
+            throw new Error('Email já registrado');
           }
 
           // Validar força da senha
-          const passwordErrors = this.validatePassword(password, config)
+          const passwordErrors = this.validatePassword(password, config);
           if (passwordErrors.length > 0) {
-            throw new Error(`Senha fraca: ${passwordErrors.join(', ')}`)
+            throw new Error(`Senha fraca: ${passwordErrors.join(', ')}`);
           }
 
           // Hash a senha com SEU método
-          const passwordHash = await config.hashPassword(password)
+          const passwordHash = await config.hashPassword(password);
 
           // Criar usuário no SEU banco
           const user = await config.userRepository.create({
@@ -354,66 +360,71 @@ export function emailPasswordPlugin(config: EmailPluginConfig): Plugin {
             passwordHash,
             createdAt: new Date(),
             // você adiciona os campos que quiser!
-          })
+          });
 
-          const token = seu_generateToken(user)
-          auth.setState('user', user)
-          auth.setState('token', token)
-          auth.setState('isLoading', false)
+          const token = seu_generateToken(user);
+          auth.setState('user', user);
+          auth.setState('token', token);
+          auth.setState('isLoading', false);
 
-          auth.emit('afterSignup', { user })
-          return user
+          auth.emit('afterSignup', { user });
+          return user;
         } catch (error) {
-          auth.setState('error', error as Error)
-          auth.setState('isLoading', false)
-          throw error
+          auth.setState('error', error as Error);
+          auth.setState('isLoading', false);
+          throw error;
         }
-      }
+      };
 
       // Métodos customizados do plugin
-      ;auth.changePassword = async (
+      auth.changePassword = async (
         email: string,
         oldPassword: string,
-        newPassword: string
+        newPassword: string,
       ) => {
-        const user = await config.userRepository.findByEmail(email)
-        if (!user) throw new Error('Usuário não encontrado')
+        const user = await config.userRepository.findByEmail(email);
+        if (!user) throw new Error('Usuário não encontrado');
 
-        const isValid = await config.comparePassword(oldPassword, user.passwordHash)
-        if (!isValid) throw new Error('Senha atual incorreta')
+        const isValid = await config.comparePassword(
+          oldPassword,
+          user.passwordHash,
+        );
+        if (!isValid) throw new Error('Senha atual incorreta');
 
-        const newHash = await config.hashPassword(newPassword)
-        await config.userRepository.updatePassword(user.id, newHash)
-      }
-
-      ;auth.resetPassword = async (email: string, newPassword: string) => {
+        const newHash = await config.hashPassword(newPassword);
+        await config.userRepository.updatePassword(user.id, newHash);
+      };
+      auth.resetPassword = async (email: string, newPassword: string) => {
         // sua lógica de reset
-      }
-    }
-  }
+      };
+    },
+  };
 }
 
 // Função helper para validar senha
-function validatePassword(password: string, config: EmailPluginConfig): string[] {
-  const errors: string[] = []
+function validatePassword(
+  password: string,
+  config: EmailPluginConfig,
+): string[] {
+  const errors: string[] = [];
 
   if (password.length < (config.minPasswordLength ?? 8)) {
-    errors.push(`Mínimo ${config.minPasswordLength ?? 8} caracteres`)
+    errors.push(`Mínimo ${config.minPasswordLength ?? 8} caracteres`);
   }
 
   if (config.requireUppercase && !password.match(/[A-Z]/)) {
-    errors.push('Precisa de letra maiúscula')
+    errors.push('Precisa de letra maiúscula');
   }
 
   if (config.requireNumbers && !password.match(/[0-9]/)) {
-    errors.push('Precisa de número')
+    errors.push('Precisa de número');
   }
 
   if (config.requireSpecialChar && !password.match(/[!@#$%^&*]/)) {
-    errors.push('Precisa de caractere especial')
+    errors.push('Precisa de caractere especial');
   }
 
-  return errors
+  return errors;
 }
 ```
 
@@ -422,24 +433,29 @@ function validatePassword(password: string, config: EmailPluginConfig): string[]
 ```typescript
 // plugins/session.ts
 
-import { Plugin, AuthCore } from 'nanoauth'
+import { Plugin, AuthCore } from 'nanoauth';
 
 interface SessionPluginConfig {
   // VOCÊ ESCOLHE ONDE SALVAR
-  storage: 'localStorage' | 'sessionStorage' | 'cookie' | 'indexeddb' | 'custom'
-  storageKey?: string
-  refreshTokenKey?: string
+  storage:
+    | 'localStorage'
+    | 'sessionStorage'
+    | 'cookie'
+    | 'indexeddb'
+    | 'custom';
+  storageKey?: string;
+  refreshTokenKey?: string;
 
   // VOCÊ ESCOLHE COMO GERAR/VALIDAR TOKENS
-  generateToken: (user: User) => string
-  generateRefreshToken?: (user: User) => string
-  validateToken: (token: string) => Promise<boolean>
-  refreshTokenFn?: (refreshToken: string) => Promise<string>
+  generateToken: (user: User) => string;
+  generateRefreshToken?: (user: User) => string;
+  validateToken: (token: string) => Promise<boolean>;
+  refreshTokenFn?: (refreshToken: string) => Promise<string>;
 
   // Configurações
-  tokenExpirationTime?: number // ms
-  autoRefreshTokens?: boolean
-  onTokenExpired?: () => void
+  tokenExpirationTime?: number; // ms
+  autoRefreshTokens?: boolean;
+  onTokenExpired?: () => void;
 }
 
 export function sessionPlugin(config: SessionPluginConfig): Plugin {
@@ -448,100 +464,105 @@ export function sessionPlugin(config: SessionPluginConfig): Plugin {
 
     async setup(auth: AuthCore) {
       // Salvar sessão quando usuário faz login
-      auth.on('afterLogin', async ({ user, token }) => {
+      auth.on('afterSignin', async ({ user, token }) => {
         // VOCÊ DECIDE COMO SALVAR
         if (config.storage === 'localStorage') {
-          localStorage.setItem(config.storageKey ?? 'auth:token', token)
+          localStorage.setItem(config.storageKey ?? 'auth:token', token);
         } else if (config.storage === 'custom') {
           // seu próprio storage
-          await seu_storage.save('token', token)
+          await seu_storage.save('token', token);
         }
-      })
+      });
 
       // Restaurar sessão ao inicializar
-      ;auth.restoreSession = async () => {
-        let token: string | null = null
+      auth.restoreSession = async () => {
+        let token: string | null = null;
 
         // VOCÊ DECIDE COMO RECUPERAR
         if (config.storage === 'localStorage') {
-          token = localStorage.getItem(config.storageKey ?? 'auth:token')
+          token = localStorage.getItem(config.storageKey ?? 'auth:token');
         } else if (config.storage === 'cookie') {
-          token = getCookie(config.storageKey ?? 'auth:token')
+          token = getCookie(config.storageKey ?? 'auth:token');
         }
 
-        if (!token) return
+        if (!token) return;
 
         try {
-          auth.setState('isLoading', true)
+          auth.setState('isLoading', true);
 
           // Validar token
-          const isValid = await config.validateToken(token)
+          const isValid = await config.validateToken(token);
           if (!isValid) {
             // Token expirado, limpar
-            await auth.clearSession()
+            await auth.clearSession();
             if (config.onTokenExpired) {
-              config.onTokenExpired()
+              config.onTokenExpired();
             }
-            return
+            return;
           }
 
           // Aqui você pode buscar dados atualizados do usuário
           // Se tiver um plugin que implementa getUser()
-          const user = await auth.getUser?.(token)
+          const user = await auth.getUser?.(token);
           if (user) {
-            auth.setState('user', user)
-            auth.setState('token', token)
+            auth.setState('user', user);
+            auth.setState('token', token);
           }
 
-          auth.setState('isLoading', false)
+          auth.setState('isLoading', false);
         } catch (error) {
-          await auth.clearSession()
+          await auth.clearSession();
         }
-      }
+      };
 
       // Limpar sessão
-      ;auth.clearSession = async () => {
+      auth.clearSession = async () => {
         if (config.storage === 'localStorage') {
-          localStorage.removeItem(config.storageKey ?? 'auth:token')
+          localStorage.removeItem(config.storageKey ?? 'auth:token');
         } else if (config.storage === 'cookie') {
-          deleteCookie(config.storageKey ?? 'auth:token')
+          deleteCookie(config.storageKey ?? 'auth:token');
         }
 
-        auth.setState('user', null)
-        auth.setState('token', null)
-      }
+        auth.setState('user', null);
+        auth.setState('token', null);
+      };
 
       // Refresh token se implementado
       if (config.refreshTokenFn) {
-        ;auth.refreshToken = async () => {
-          const refreshToken = localStorage.getItem(config.refreshTokenKey ?? 'auth:refresh')
-          if (!refreshToken) throw new Error('No refresh token')
+        auth.refreshToken = async () => {
+          const refreshToken = localStorage.getItem(
+            config.refreshTokenKey ?? 'auth:refresh',
+          );
+          if (!refreshToken) throw new Error('No refresh token');
 
-          const newToken = await config.refreshTokenFn(refreshToken)
-          localStorage.setItem(config.storageKey ?? 'auth:token', newToken)
-          auth.setState('token', newToken)
+          const newToken = await config.refreshTokenFn(refreshToken);
+          localStorage.setItem(config.storageKey ?? 'auth:token', newToken);
+          auth.setState('token', newToken);
 
-          return newToken
-        }
+          return newToken;
+        };
 
         // Auto refresh se habilitado
         if (config.autoRefreshTokens && config.tokenExpirationTime) {
-          setInterval(async () => {
-            try {
-              await auth.refreshToken()
-            } catch (error) {
-              console.error('Token refresh falhou:', error)
-            }
-          }, (config.tokenExpirationTime ?? 3600000) - 60000)
+          setInterval(
+            async () => {
+              try {
+                await auth.refreshToken();
+              } catch (error) {
+                console.error('Token refresh falhou:', error);
+              }
+            },
+            (config.tokenExpirationTime ?? 3600000) - 60000,
+          );
         }
       }
 
       // Limpar sessão ao fazer logout
       auth.on('afterLogout', async () => {
-        await auth.clearSession()
-      })
-    }
-  }
+        await auth.clearSession();
+      });
+    },
+  };
 }
 ```
 
@@ -550,30 +571,34 @@ export function sessionPlugin(config: SessionPluginConfig): Plugin {
 ```typescript
 // plugins/oauth.ts
 
-import { Plugin, AuthCore } from 'nanoauth'
+import { Plugin, AuthCore } from 'nanoauth';
 
 interface OAuthProvider {
-  name: string
-  clientId: string
-  clientSecret: string
-  authorizationUrl: string
-  tokenUrl: string
-  userInfoUrl: string
-  redirectUri: string
-  scope: string[]
+  name: string;
+  clientId: string;
+  clientSecret: string;
+  authorizationUrl: string;
+  tokenUrl: string;
+  userInfoUrl: string;
+  redirectUri: string;
+  scope: string[];
   // VOCÊ PODE ADICIONAR O QUE QUISER
-  [key: string]: any
+  [key: string]: any;
 }
 
 interface OAuthPluginConfig {
-  providers: Record<string, OAuthProvider>
+  providers: Record<string, OAuthProvider>;
   userRepository: {
-    findByOAuthId(provider: string, oauthId: string): Promise<User | null>
-    create(user: User): Promise<User>
-    linkAccount(userId: string, provider: string, oauthId: string): Promise<void>
-  }
+    findByOAuthId(provider: string, oauthId: string): Promise<User | null>;
+    create(user: User): Promise<User>;
+    linkAccount(
+      userId: string,
+      provider: string,
+      oauthId: string,
+    ): Promise<void>;
+  };
   // User mapping customizado
-  mapOAuthProfile?: (provider: string, profile: any) => Partial<User>
+  mapOAuthProfile?: (provider: string, profile: any) => Partial<User>;
 }
 
 export function oauthPlugin(config: OAuthPluginConfig): Plugin {
@@ -581,35 +606,39 @@ export function oauthPlugin(config: OAuthPluginConfig): Plugin {
     name: 'oauth',
 
     async setup(auth: AuthCore) {
-      ;auth.getOAuthUrl = (provider: string) => {
-        const providerConfig = config.providers[provider]
-        if (!providerConfig) throw new Error(`Provider ${provider} not found`)
+      auth.getOAuthUrl = (provider: string) => {
+        const providerConfig = config.providers[provider];
+        if (!providerConfig) throw new Error(`Provider ${provider} not found`);
 
         // Gerar state e salvar
-        const state = generateRandomString(32)
-        localStorage.setItem(`oauth_state_${provider}`, state)
+        const state = generateRandomString(32);
+        localStorage.setItem(`oauth_state_${provider}`, state);
 
         const params = new URLSearchParams({
           client_id: providerConfig.clientId,
           redirect_uri: providerConfig.redirectUri,
           response_type: 'code',
           scope: providerConfig.scope.join(' '),
-          state
-        })
+          state,
+        });
 
-        return `${providerConfig.authorizationUrl}?${params.toString()}`
-      }
-
-      ;auth.handleOAuthCallback = async (provider: string, code: string, state: string) => {
+        return `${providerConfig.authorizationUrl}?${params.toString()}`;
+      };
+      auth.handleOAuthCallback = async (
+        provider: string,
+        code: string,
+        state: string,
+      ) => {
         try {
-          const providerConfig = config.providers[provider]
-          if (!providerConfig) throw new Error(`Provider ${provider} not found`)
+          const providerConfig = config.providers[provider];
+          if (!providerConfig)
+            throw new Error(`Provider ${provider} not found`);
 
           // Validar state
-          const savedState = localStorage.getItem(`oauth_state_${provider}`)
-          if (state !== savedState) throw new Error('State validation failed')
+          const savedState = localStorage.getItem(`oauth_state_${provider}`);
+          if (state !== savedState) throw new Error('State validation failed');
 
-          auth.setState('isLoading', true)
+          auth.setState('isLoading', true);
 
           // Trocar código por token
           const tokenResponse = await fetch(providerConfig.tokenUrl, {
@@ -619,50 +648,57 @@ export function oauthPlugin(config: OAuthPluginConfig): Plugin {
               client_secret: providerConfig.clientSecret,
               code,
               redirect_uri: providerConfig.redirectUri,
-              grant_type: 'authorization_code'
-            })
-          }).then((r) => r.json())
+              grant_type: 'authorization_code',
+            }),
+          }).then((r) => r.json());
 
           // Buscar dados do usuário
           const profile = await fetch(providerConfig.userInfoUrl, {
-            headers: { Authorization: `Bearer ${tokenResponse.access_token}` }
-          }).then((r) => r.json())
+            headers: { Authorization: `Bearer ${tokenResponse.access_token}` },
+          }).then((r) => r.json());
 
           // Mapear perfil (customizável!)
           const userData = config.mapOAuthProfile?.(provider, profile) ?? {
             email: profile.email,
             name: profile.name,
-            avatar: profile.picture
-          }
+            avatar: profile.picture,
+          };
 
           // Buscar ou criar usuário
-          let user = await config.userRepository.findByOAuthId(provider, profile.id)
+          let user = await config.userRepository.findByOAuthId(
+            provider,
+            profile.id,
+          );
 
           if (!user) {
             user = await config.userRepository.create({
               id: crypto.randomUUID(),
               ...userData,
-              createdAt: new Date()
-            })
+              createdAt: new Date(),
+            });
           } else {
-            await config.userRepository.linkAccount(user.id, provider, profile.id)
+            await config.userRepository.linkAccount(
+              user.id,
+              provider,
+              profile.id,
+            );
           }
 
-          const token = seu_generateToken(user)
-          auth.setState('user', user)
-          auth.setState('token', token)
-          auth.setState('isLoading', false)
+          const token = seu_generateToken(user);
+          auth.setState('user', user);
+          auth.setState('token', token);
+          auth.setState('isLoading', false);
 
-          auth.emit('afterLogin', { user, token })
-          return user
+          auth.emit('afterSignin', { user, token });
+          return user;
         } catch (error) {
-          auth.setState('error', error as Error)
-          auth.setState('isLoading', false)
-          throw error
+          auth.setState('error', error as Error);
+          auth.setState('isLoading', false);
+          throw error;
         }
-      }
-    }
-  }
+      };
+    },
+  };
 }
 ```
 
@@ -671,6 +707,7 @@ export function oauthPlugin(config: OAuthPluginConfig): Plugin {
 ## 🎁 Ideas de Plugins (você pode criar!)
 
 ### Autenticação e Estratégias
+
 - [ ] Email/Password (básico ou avançado)
 - [ ] OAuth2 (Google, GitHub, Facebook, etc)
 - [ ] SAML
@@ -680,6 +717,7 @@ export function oauthPlugin(config: OAuthPluginConfig): Plugin {
 - [ ] Biometria (WebAuthn)
 
 ### Sessão e Tokens
+
 - [ ] JWT com refresh tokens
 - [ ] Session storage customizado
 - [ ] Token rotation
@@ -688,6 +726,7 @@ export function oauthPlugin(config: OAuthPluginConfig): Plugin {
 - [ ] Multi-session support
 
 ### Segurança
+
 - [ ] Rate limiting
 - [ ] Brute force protection
 - [ ] CSRF protection
@@ -697,6 +736,7 @@ export function oauthPlugin(config: OAuthPluginConfig): Plugin {
 - [ ] IP whitelist/blacklist
 
 ### Autorização
+
 - [ ] RBAC (Role-Based Access Control)
 - [ ] ABAC (Attribute-Based Access Control)
 - [ ] Permissões granulares
@@ -704,6 +744,7 @@ export function oauthPlugin(config: OAuthPluginConfig): Plugin {
 - [ ] Delegation/Impersonation
 
 ### Persistência e Dados
+
 - [ ] User profile management
 - [ ] Account linking/federation
 - [ ] Account recovery
@@ -712,6 +753,7 @@ export function oauthPlugin(config: OAuthPluginConfig): Plugin {
 - [ ] Social data sync
 
 ### Analytics e Logging
+
 - [ ] Audit logs
 - [ ] Login/logout tracking
 - [ ] Failed attempt logging
@@ -720,6 +762,7 @@ export function oauthPlugin(config: OAuthPluginConfig): Plugin {
 - [ ] Email notifications
 
 ### Integração
+
 - [ ] Webhook hooks
 - [ ] Analytics providers (Google Analytics, Mixpanel, etc)
 - [ ] Email providers (SendGrid, AWS SES, etc)
@@ -735,20 +778,20 @@ export function oauthPlugin(config: OAuthPluginConfig): Plugin {
 
 ```typescript
 // auth.ts
-import { createAuth } from 'nanoauth'
-import { emailPasswordPlugin } from './plugins/email-password'
-import { sessionPlugin } from './plugins/session'
-import { UserRepository } from './db/users'
-import { hashPassword, comparePassword } from './crypto'
+import { createAuth } from 'nanoauth';
+import { emailPasswordPlugin } from './plugins/email-password';
+import { sessionPlugin } from './plugins/session';
+import { UserRepository } from './db/users';
+import { hashPassword, comparePassword } from './crypto';
 
-const userRepo = new UserRepository()
+const userRepo = new UserRepository();
 
 export const auth = createAuth({
   // Seu adapter customizado - você decide como buscar usuários!
   async getUser(userId: string) {
-    return userRepo.findById(userId)
-  }
-})
+    return userRepo.findById(userId);
+  },
+});
 
 // Plugin 1: Session/Tokens
 auth.use(
@@ -756,9 +799,9 @@ auth.use(
     storage: 'localStorage',
     tokenExpirationTime: 24 * 60 * 60 * 1000,
     generateToken: (user) => seu_jwt_sign(user),
-    validateToken: (token) => seu_jwt_verify(token)
-  })
-)
+    validateToken: (token) => seu_jwt_verify(token),
+  }),
+);
 
 // Plugin 2: Email/Password
 auth.use(
@@ -766,14 +809,14 @@ auth.use(
     hashPassword,
     comparePassword,
     validateEmail: (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email),
-    userRepository: userRepo
-  })
-)
+    userRepository: userRepo,
+  }),
+);
 
 // Restaurar sessão ao inicializar
-auth.restoreSession()
+auth.restoreSession();
 
-export default auth
+export default auth;
 ```
 
 ### Em Componentes React
@@ -853,30 +896,30 @@ function Dashboard({ user }) {
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
-import auth from '@/auth'
+import { ref, onMounted, onUnmounted } from 'vue';
+import auth from '@/auth';
 
-const user = ref(null)
-const isLoading = ref(false)
-let unsubUser, unsubLoading
+const user = ref(null);
+const isLoading = ref(false);
+let unsubUser, unsubLoading;
 
 onMounted(() => {
-  unsubUser = auth.onChange('user', (u) => (user.value = u))
-  unsubLoading = auth.onChange('isLoading', (l) => (isLoading.value = l))
-})
+  unsubUser = auth.onChange('user', (u) => (user.value = u));
+  unsubLoading = auth.onChange('isLoading', (l) => (isLoading.value = l));
+});
 
 onUnmounted(() => {
-  unsubUser?.()
-  unsubLoading?.()
-})
+  unsubUser?.();
+  unsubLoading?.();
+});
 
 const handleLogin = async (email, password) => {
   try {
-    await auth.login(email, password)
+    await auth.login(email, password);
   } catch (error) {
-    console.error('Login falhou:', error)
+    console.error('Login falhou:', error);
   }
-}
+};
 </script>
 ```
 
@@ -888,10 +931,10 @@ const handleLogin = async (email, password) => {
 
 ```typescript
 // Seus plugins podem adicionar qualquer método
-auth.use(meuPlugin())
+auth.use(meuPlugin());
 
 // Depois usar
-await auth.meuMetodo()
+await auth.meuMetodo();
 ```
 
 ### Hooks do Ciclo de Vida
@@ -899,25 +942,25 @@ await auth.meuMetodo()
 ```typescript
 // Plugins podem registrar hooks
 auth.on('beforeLogin', async ({ email }) => {
-  console.log(`Tentando login com ${email}`)
-})
+  console.log(`Tentando login com ${email}`);
+});
 
-auth.on('afterLogin', async ({ user, token }) => {
-  console.log(`Login bem-sucedido: ${user.email}`)
+auth.on('afterSignin', async ({ user, token }) => {
+  console.log(`Login bem-sucedido: ${user.email}`);
   // Enviar analytics, fazer chamadas API, etc
-})
+});
 
 auth.on('beforeLogout', async () => {
-  console.log('Saindo...')
-})
+  console.log('Saindo...');
+});
 
 auth.on('afterLogout', async () => {
-  console.log('Usuário saiu')
-})
+  console.log('Usuário saiu');
+});
 
 auth.on('onError', async (error) => {
-  console.error('Erro de autenticação:', error)
-})
+  console.error('Erro de autenticação:', error);
+});
 ```
 
 ### Observar Estado
@@ -925,26 +968,26 @@ auth.on('onError', async (error) => {
 ```typescript
 // Qualquer mudança de estado pode ser observada
 const unsubscribe = auth.onChange('user', (newUser) => {
-  console.log('Usuário mudou:', newUser)
-})
+  console.log('Usuário mudou:', newUser);
+});
 
 // Parar de observar
-unsubscribe()
+unsubscribe();
 
 // Observar múltiplas mudanças
 auth.onChange('token', (token) => {
   // Token mudou
-})
+});
 
 auth.onChange('error', (error) => {
   // Erro mudou
-})
+});
 ```
 
 ### Criar Seus Próprios Plugins
 
 ```typescript
-import { Plugin, AuthCore } from 'nanoauth'
+import { Plugin, AuthCore } from 'nanoauth';
 
 export function meuPluginCustomizado(): Plugin {
   return {
@@ -952,28 +995,28 @@ export function meuPluginCustomizado(): Plugin {
 
     async setup(auth: AuthCore) {
       // Adicionar estado
-      auth.setState('meuEstado', {})
+      auth.setState('meuEstado', {});
 
       // Adicionar método
-      ;auth.meuMetodo = async (param: string) => {
+      auth.meuMetodo = async (param: string) => {
         // sua lógica
-      }
+      };
 
       // Ouvir hooks
-      auth.on('afterLogin', async ({ user }) => {
+      auth.on('afterSignin', async ({ user }) => {
         // reagir
-      })
+      });
 
       // Observar mudanças
       auth.onChange('user', (newUser) => {
         // reagir
-      })
-    }
-  }
+      });
+    },
+  };
 }
 
 // Usar
-auth.use(meuPluginCustomizado())
+auth.use(meuPluginCustomizado());
 ```
 
 ---
@@ -984,50 +1027,50 @@ auth.use(meuPluginCustomizado())
 // Types principais que você vai usar
 
 export interface User {
-  id: string
-  email: string
-  name: string
+  id: string;
+  email: string;
+  name: string;
   // Adicione qualquer campo que quiser!
-  [key: string]: any
+  [key: string]: any;
 }
 
 export interface AuthAdapter {
-  getUser(userId: string): Promise<User | null>
-  saveSession(sessionId: string, data: any): Promise<void>
-  validateToken(token: string): Promise<boolean>
-  deleteSession(sessionId: string): Promise<void>
+  getUser(userId: string): Promise<User | null>;
+  saveSession(sessionId: string, data: any): Promise<void>;
+  validateToken(token: string): Promise<boolean>;
+  deleteSession(sessionId: string): Promise<void>;
   // Seus métodos customizados aqui!
-  [key: string]: any
+  [key: string]: any;
 }
 
 export interface Plugin {
-  name: string
-  setup(auth: AuthCore): void | Promise<void>
+  name: string;
+  setup(auth: AuthCore): void | Promise<void>;
 }
 
 export interface AuthConfig {
   // Customizar comportamento da auth
-  [key: string]: any
+  [key: string]: any;
 }
 
 export interface AuthCore {
   // Estado
-  onChange(key: string, callback: (value: any) => void): () => void
-  getState<T = any>(key: string): Promise<T | undefined>
+  onChange(key: string, callback: (value: any) => void): () => void;
+  getState<T = any>(key: string): Promise<T | undefined>;
 
   // Hooks
-  on(event: string, callback: Function): void
+  on(event: string, callback: Function): void;
 
   // Plugins
-  use(plugin: Plugin): this
+  use(plugin: Plugin): this;
 
   // Métodos padrão (implementados por plugins)
-  login(credentials: any): Promise<User>
-  logout(): Promise<void>
-  signup(data: any): Promise<User>
+  login(credentials: any): Promise<User>;
+  logout(): Promise<void>;
+  signup(data: any): Promise<User>;
 
   // Qualquer método customizado de seus plugins
-  [key: string]: any
+  [key: string]: any;
 }
 ```
 
@@ -1036,29 +1079,34 @@ export interface AuthCore {
 ## 🚀 Roadmap de Implementação
 
 ### Fase 1: Core Mínimo
+
 - [ ] AuthCore class
 - [ ] onChange/getState API
 - [ ] Plugin system
 - [ ] Hooks system
 
 ### Fase 2: Plugins Built-in
+
 - [ ] Email/Password plugin
 - [ ] Session plugin
 - [ ] OAuth plugin base
 
 ### Fase 3: Documentação e Exemplos
+
 - [ ] Documentação completa
 - [ ] Exemplos com React, Vue, Svelte
 - [ ] Exemplos de plugins customizados
 - [ ] Guia de arquitetura
 
 ### Fase 4: Features Adicionais
+
 - [ ] 2FA plugin
 - [ ] Rate limiting plugin
 - [ ] Audit log plugin
 - [ ] Device management
 
 ### Fase 5: Ecossistema
+
 - [ ] Comunidade de plugins
 - [ ] Publicar plugins no npm
 - [ ] Criar showcase de projetos usando NanoAuth
@@ -1073,13 +1121,13 @@ export interface AuthCore {
 ✅ Tem requisitos únicos e específicos  
 ✅ Quer evitar vendor lock-in  
 ✅ Prefere composição a configuração  
-✅ Quer zero dependências  
+✅ Quer zero dependências
 
 **NanoAuth NÃO é para você se:**
 
 ❌ Quer algo pronto para usar em 5 minutos  
 ❌ Quer muita magia automática  
-❌ Quer que alguém else decida os padrões  
+❌ Quer que alguém else decida os padrões
 
 ---
 

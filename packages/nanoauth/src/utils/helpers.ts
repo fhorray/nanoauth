@@ -30,45 +30,80 @@ export function defineAdapter<
 }
 
 /**
- * Define a factory function for a Plugin that accepts options.
- * Provides excellent type inference for the options and the inner plugin definition.
+ * Define a Plugin with full automatic type inference.
+ * No generics needed - types are extracted from the setup return!
  * 
  * @example
- * const myPlugin = definePlugin<{ myOption: string }, { sendMagicLink: () => void }>((options) => ({
- *   name: 'my-plugin',
+ * export const magicLinkPlugin = definePlugin((config: MagicLinkConfig) => ({
+ *   name: 'magic-link',
  *   setup(auth) {
- *     console.log(options.myOption);
- *     (auth as any).sendMagicLink = () => {}
+ *     return {
+ *       sendMagicLink: async (email: string) => {
+ *         await config.sendEmail(email, 'link');
+ *       }
+ *     };
  *   }
  * }));
+ * 
+ * // sendMagicLink is fully typed automatically!
+ * await auth.sendMagicLink('user@example.com');
  */
 export function definePlugin<
-  TOptions = void,
-  TExports = {},
-  TUser extends User = User
+  const TFactory extends (options: any) => {
+    name: string;
+    setup(auth: any): Record<string, any> | Promise<Record<string, any>>;
+  }
 >(
-  factory: (options: TOptions) => Plugin<TUser, TExports>
-): (options: TOptions) => Plugin<TUser, TExports> {
-  return factory;
+  factory: TFactory
+): TFactory extends (options: infer TOptions) => infer TPluginDef
+  ? TPluginDef extends { setup(auth: any): infer TSetupReturn }
+  ? TSetupReturn extends Promise<infer TAwaited>
+  ? TAwaited extends Record<string, any>
+  ? (options: TOptions) => Plugin<User, TAwaited>
+  : (options: TOptions) => Plugin<User, {}>
+  : TSetupReturn extends Record<string, any>
+  ? (options: TOptions) => Plugin<User, TSetupReturn>
+  : (options: TOptions) => Plugin<User, {}>
+  : never
+  : never;
+
+export function definePlugin(factory: any): any {
+  return (options: any) => {
+    const def = factory(options);
+
+    return {
+      name: def.name,
+      async setup(auth: any) {
+        const result = await def.setup(auth);
+
+        // Merge exported methods into auth
+        if (result && typeof result === 'object' && result !== auth) {
+          Object.assign(auth, result);
+        }
+
+        return result;
+      }
+    };
+  };
 }
 
 /**
  * Define a simple Plugin without options.
- * Provides immediate autocomplete for the `setup` method and `auth` instance.
  * 
  * @example
- * const simplePlugin = createPlugin<{}, { customMethod: () => string }>({
+ * const simplePlugin = createPlugin({
  *   name: 'simple',
  *   setup(auth) {
- *     (auth as any).customMethod = () => 'hello';
+ *     return {
+ *       customMethod: () => 'hello'
+ *     };
  *   }
  * });
  */
 export function createPlugin<
-  TExports = {},
   TUser extends User = User
 >(
-  definition: Plugin<TUser, TExports>
-): Plugin<TUser, TExports> {
+  definition: Plugin<TUser, any>
+): Plugin<TUser, any> {
   return definition;
 }

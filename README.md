@@ -34,7 +34,7 @@ bun add nanoauth
 To master NanoAuth, you just need to understand its 4 core pillars:
 
 1. **The User Type**: Your custom data structure.
-2. **The Database Adapter**: How NanoAuth talks to *your* database.
+2. **The Database Adapter**: How NanoAuth talks to _your_ database.
 3. **The Plugins**: The actual auth methods (Email/Pass, OAuth).
 4. **The Hooks**: Lifecycles and Interceptors.
 
@@ -44,9 +44,9 @@ Let's dive into each one! 👇
 
 ## 🧍‍♀️ 1. The User Type (Generics)
 
-NanoAuth doesn't force a database schema on you. By default, a `User` just needs an `id` and an `email`. Everything else is up to you! 
+NanoAuth doesn't force a database schema on you. By default, a `User` just needs an `id` and an `email`. Everything else is up to you!
 
-You define your schema by extending the base `User` interface. NanoAuth will infer this type *everywhere*.
+You define your schema by extending the base `User` interface. NanoAuth will infer this type _everywhere_.
 
 ```typescript
 import type { User } from 'nanoauth';
@@ -76,36 +76,37 @@ const myAdapter: AuthAdapter<MyAwesomeUser> = {
   async getUser(userId) {
     return await db.users.findUnique({ where: { id: userId } });
   },
-  
+
   // NanoAuth asks: "Hey, store this session payload"
   async saveSession(sessionId, data) {
     await db.sessions.insert({ id: sessionId, payload: data });
   },
-  
+
   // NanoAuth asks: "Hey, delete this session"
   async deleteSession(sessionId) {
     await db.sessions.delete({ where: { id: sessionId } });
   },
-  
+
   // Optional: Custom token validation logic
   async validateToken(token) {
     const session = await db.sessions.findByToken(token);
-    return session !== null; 
-  }
+    return session !== null;
+  },
 };
 ```
 
 That's it! NanoAuth now knows how to persist data in your specific architecture. 🧠
 
-> **💡 Pro Tip (Developer Experience):** 
+> **💡 Pro Tip (Developer Experience):**
 > To get perfect autocompletion and ensure you don't miss any required methods, use the `defineAdapter` helper! It acts exactly like a normal object, but supercharges your TypeScript experience:
+>
 > ```typescript
 > import { defineAdapter } from 'nanoauth';
-> 
+>
 > const myAdapter = defineAdapter({
 >    async getUser(userId) { ... },
 >    // Autocomplete will guide you through all required methods!
->    
+>
 >    // You can also add ANY extra custom method you want!
 >    async getSuperUser(email) { ... }
 > });
@@ -126,18 +127,19 @@ export const auth = nanoauth<MyAwesomeUser>({
   plugins: [
     // Handles tokens, refreshing, and storage logic
     sessionPlugin({ storage: 'memory' }),
-    
+
     // Handles login(), signup(), and password hashing
     emailPasswordPlugin({
       userRepository: db.users, // Your DB queries
       hashPassword: async (pwd) => bun.password.hash(pwd),
-      comparePassword: async (pwd, hash) => bun.password.verify(pwd, hash)
-    })
-  ]
+      comparePassword: async (pwd, hash) => bun.password.verify(pwd, hash),
+    }),
+  ],
 });
 ```
 
 ### 🌐 OAuth (Social Login)
+
 The holy grail. Define your providers (Google, GitHub, Discord) and let NanoAuth handle the state validation, anti-CSRF handshakes, and profile mapping.
 
 ```typescript
@@ -159,7 +161,7 @@ oauthPlugin({
     email: profile.email,
     name: profile.name,
     role: 'customer',
-    favoriteColor: 'blue' 
+    favoriteColor: 'blue',
   }),
 });
 ```
@@ -171,7 +173,8 @@ oauthPlugin({
 NanoAuth has two completely distinct hook ecosystems. This is where the power user inside you comes alive. 🧙‍♂️
 
 ### ⚡ Reactive Events (Fire-and-forget)
-These happen *after* an action completes. Use them for side-effects, analytics, or triggering webhooks. They **do not** block the auth flow.
+
+These happen _after_ an action completes. Use them for side-effects, analytics, or triggering webhooks. They **do not** block the auth flow.
 
 ```typescript
 hooks: {
@@ -180,7 +183,7 @@ hooks: {
     console.log(`New ${user.role} joined: ${user.email} 🎊`);
     sendWelcomeEmail(user.email);
   },
-  afterLogin: ({ user, token }) => {
+  afterSignin: ({ user, token }) => {
     logger.info(`${user.name} just logged in.`);
   },
   onError: (error) => {
@@ -190,20 +193,21 @@ hooks: {
 ```
 
 > **Dynamic Listeners**: You are not restricted to defining events only during initialization! You can attach listeners dynamically anywhere in your application using `auth.on()`:
+>
 > ```typescript
 > // Subscribe to an event programmatically
-> const unsubscribe = auth.on('afterLogin', ({ user }) => {
+> const unsubscribe = auth.on('afterSignin', ({ user }) => {
 >   websocket.broadcast(`User ${user.name} is online!`);
 > });
-> 
+>
 > // Later, if you want to stop listening:
 > unsubscribe();
 > ```
 
-
 ### 🛡️ Database Interceptors (Middleware)
-These act as middleware *before* your Adapter executes a database command. 
-If you define an interceptor, **you MUST call `next()`**. If you forget, NanoAuth will throw a fatal error to protect you from silent database failures. 
+
+These act as middleware _before_ your Adapter executes a database command.
+If you define an interceptor, **you MUST call `next()`**. If you forget, NanoAuth will throw a fatal error to protect you from silent database failures.
 
 They are incredibly powerful for injecting caching, audting, or modifying data on the fly.
 
@@ -217,7 +221,7 @@ hooks: {
 
     // 2. Call next() to let the Adapter fetch from PostgreSQL
     const user = await next(userId);
-    
+
     // 3. Update Cache & Return
     if (user) await redis.set(`user:${userId}`, JSON.stringify(user));
     return user;
@@ -226,13 +230,13 @@ hooks: {
   // Let's modify the session data before saving!
   onSaveSession: async (sessionId, data, next) => {
     console.log('User is generating a new session!');
-    
-    const enhancedData = { 
-       ...data, 
-       ipAddress: "127.0.0.1", 
-       device: "iPhone" 
+
+    const enhancedData = {
+       ...data,
+       ipAddress: "127.0.0.1",
+       device: "iPhone"
     };
-    
+
     // Pass the modified data down to your Database Adapter
     return next(sessionId, enhancedData);
   }
@@ -273,6 +277,7 @@ The true power of NanoAuth lies in its pluggable architecture. Creating your own
 To provide the best Developer Experience (DX) and strict Type Safety without boilerplate, we provide the `definePlugin` and `createPlugin` helpers.
 
 Inside the `setup` function, you get access to the main `AuthCoreInstance`. This allows your plugin to:
+
 1. **Listen to Events:** Use `auth.on('event', ...)` to trigger side-effects.
 2. **Read/Write State:** Use `auth.getState('token')` or `auth.setState('isLoading', true)`.
 3. **Inject or Override Methods:** Add new methods to the `auth` object or override placeholders like `auth.login`.
@@ -297,33 +302,33 @@ export const magicLinkPlugin = definePlugin<MagicLinkConfig>((config) => ({
 
   // 3. The setup function is called once during initialization
   async setup(auth) {
-      
-      // Inject a brand new method into the auth instance
-      auth.sendMagicLink = async (email: string) => {
-        try {
-          auth.setState('isLoading', true); // Update internal state
+    // Inject a brand new method into the auth instance
+    auth.sendMagicLink = async (email: string) => {
+      try {
+        auth.setState('isLoading', true); // Update internal state
 
-          const token = config.generateToken();
-          const link = `https://myapp.com/auth/verify?token=${token}`;
-          
-          await config.sendEmail(email, link);
+        const token = config.generateToken();
+        const link = `https://myapp.com/auth/verify?token=${token}`;
 
-          auth.setState('isLoading', false);
-        } catch (error) {
-          auth.setState('error', error);
-          auth.setState('isLoading', false);
-          
-          // Emit a reactive event if things fail
-          auth.emit('onError', error); 
-        }
+        await config.sendEmail(email, link);
+
+        auth.setState('isLoading', false);
+      } catch (error) {
+        auth.setState('error', error);
+        auth.setState('isLoading', false);
+
+        // Emit a reactive event if things fail
+        auth.emit('onError', error);
       }
-  }
+    };
+  },
 }));
 ```
 
 > **Note:** If your plugin doesn't need external configuration, you can use `createPlugin({ name: '...', setup(auth) { ... } })` directly!
 
 **How to use it:**
+
 ```typescript
 import { nanoauth } from 'nanoauth';
 import { magicLinkPlugin } from './my-plugins/magic-link';
@@ -335,9 +340,9 @@ const auth = nanoauth({
       generateToken: () => crypto.randomUUID(),
       sendEmail: async (email, link) => {
         console.log(`Sending login link to ${email}: ${link}`);
-      }
-    })
-  ]
+      },
+    }),
+  ],
 });
 
 // The custom method is now available!

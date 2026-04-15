@@ -63,14 +63,14 @@ export interface AuthConfig {
  */
 export interface Plugin<TUser extends User = User, TExports = {}> {
   name: string
-  setup(auth: AuthCoreInstance<TUser>): void | Promise<void>
+  setup(auth: AuthCoreInstance<TUser>): void | Promise<void> | TExports | Promise<TExports>
 }
 
 /**
  * Event payloads definition
  */
 export interface AuthEvents<TUser extends User = User> {
-  afterLogin: { user: TUser; token: string; provider?: string }
+  afterSignin: { user: TUser; token: string; provider?: string }
   afterSignup: { user: TUser; token: string }
   afterLogout: void
   onError: Error
@@ -110,7 +110,7 @@ export interface AuthCoreInstance<TUser extends User = User> {
  */
 export interface NanoAuthHooks<TUser extends User = User> {
   // Reactive Events (Fire and Forget)
-  afterLogin?: (data: { user: TUser; token: string; provider?: string }) => void | Promise<void>
+  afterSignin?: (data: { user: TUser; token: string; provider?: string }) => void | Promise<void>
   afterSignup?: (data: { user: TUser; token: string }) => void | Promise<void>
   afterLogout?: () => void | Promise<void>
   onError?: (error: Error) => void | Promise<void>

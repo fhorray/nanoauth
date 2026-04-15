@@ -221,7 +221,7 @@ export function nanoauth<
 
   // 3. Register reactive hooks (Events)
   if (hooks) {
-    const events = ['afterLogin', 'afterSignup', 'afterLogout', 'onError']
+    const events = ['afterSignin', 'afterSignup', 'afterLogout', 'onError']
     for (const event of events) {
       if (typeof (hooks as any)[event] === 'function') {
         auth.on(event, (hooks as any)[event]!)
@@ -238,7 +238,7 @@ export function nanoauth<
 
   // 5. Automatic Session Persistence (Backend Sync)
   if (typeof (wrappedAdapter as any).saveSession === 'function') {
-    auth.on('afterLogin', async ({ user, token }) => {
+    auth.on('afterSignin', async ({ user, token }) => {
       if (token && user) {
         await (wrappedAdapter as any).saveSession(token, { userId: user.id, ...user })
       }

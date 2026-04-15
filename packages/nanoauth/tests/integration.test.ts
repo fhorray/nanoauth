@@ -87,7 +87,7 @@ describe('Integration Tests - Full Auth Flow', () => {
     let loginHookCalled = false;
     let signupHookCalled = false;
 
-    auth.on('afterLogin', () => {
+    auth.on('afterSignin', () => {
       loginHookCalled = true;
     });
 
@@ -138,7 +138,7 @@ describe('Integration Tests - Full Auth Flow', () => {
     expect(loginResult.email).toBe('testuser@example.com');
 
     // Emit login hook
-    auth.emit('afterLogin', { user: loginResult });
+    auth.emit('afterSignin', { user: loginResult });
     await new Promise(resolve => setTimeout(resolve, 10));
     expect(loginHookCalled).toBe(true);
   });
@@ -401,7 +401,7 @@ describe('Integration Tests - Full Auth Flow', () => {
     const events: string[] = [];
 
     auth.on('beforeLogin', () => events.push('beforeLogin'));
-    auth.on('afterLogin', () => events.push('afterLogin'));
+    auth.on('afterSignin', () => events.push('afterSignin'));
     auth.on('beforeLogout', () => events.push('beforeLogout'));
     auth.on('afterLogout', () => events.push('afterLogout'));
     auth.on('error', () => events.push('error'));
@@ -421,7 +421,7 @@ describe('Integration Tests - Full Auth Flow', () => {
 
     // Emit hooks
     auth.emit('beforeLogin', {});
-    auth.emit('afterLogin', {});
+    auth.emit('afterSignin', {});
     auth.emit('beforeLogout', {});
     auth.emit('afterLogout', {});
 
