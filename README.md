@@ -97,6 +97,20 @@ const myAdapter: AuthAdapter<MyAwesomeUser> = {
 
 That's it! NanoAuth now knows how to persist data in your specific architecture. 🧠
 
+> **💡 Pro Tip (Developer Experience):** 
+> To get perfect autocompletion and ensure you don't miss any required methods, use the `defineAdapter` helper! It acts exactly like a normal object, but supercharges your TypeScript experience:
+> ```typescript
+> import { defineAdapter } from 'nanoauth';
+> 
+> const myAdapter = defineAdapter({
+>    async getUser(userId) { ... },
+>    // Autocomplete will guide you through all required methods!
+>    
+>    // You can also add ANY extra custom method you want!
+>    async getSuperUser(email) { ... }
+> });
+> ```
+
 ---
 
 ## 🔌 3. Plugins & Setup
@@ -252,6 +266,86 @@ export default app;
 
 ---
 
+## 🛠️ Building Custom Plugins
+
+The true power of NanoAuth lies in its pluggable architecture. Creating your own plugin is extremely simple. A plugin is just an object that implements the `Plugin` interface, which requires a `name` and a `setup` function.
+
+To provide the best Developer Experience (DX) and strict Type Safety without boilerplate, we provide the `definePlugin` and `createPlugin` helpers.
+
+Inside the `setup` function, you get access to the main `AuthCoreInstance`. This allows your plugin to:
+1. **Listen to Events:** Use `auth.on('event', ...)` to trigger side-effects.
+2. **Read/Write State:** Use `auth.getState('token')` or `auth.setState('isLoading', true)`.
+3. **Inject or Override Methods:** Add new methods to the `auth` object or override placeholders like `auth.login`.
+
+### Example: A Magic Link Plugin
+
+Here is a simplified example of how you might create a custom "Magic Link" plugin that adds a `sendMagicLink` method to your NanoAuth instance:
+
+```typescript
+import { definePlugin } from 'nanoauth';
+
+// 1. Define your Plugin Config interface
+export interface MagicLinkConfig {
+  sendEmail: (email: string, link: string) => Promise<void>;
+  generateToken: () => string;
+}
+
+// 2. Create the Plugin Factory using the Helper
+// This gives you perfect autocomplete for 'config' and 'auth'
+export const magicLinkPlugin = definePlugin<MagicLinkConfig>((config) => ({
+  name: 'magic-link', // Must be unique
+
+  // 3. The setup function is called once during initialization
+  async setup(auth) {
+      
+      // Inject a brand new method into the auth instance
+      auth.sendMagicLink = async (email: string) => {
+        try {
+          auth.setState('isLoading', true); // Update internal state
+
+          const token = config.generateToken();
+          const link = `https://myapp.com/auth/verify?token=${token}`;
+          
+          await config.sendEmail(email, link);
+
+          auth.setState('isLoading', false);
+        } catch (error) {
+          auth.setState('error', error);
+          auth.setState('isLoading', false);
+          
+          // Emit a reactive event if things fail
+          auth.emit('onError', error); 
+        }
+      }
+  }
+}));
+```
+
+> **Note:** If your plugin doesn't need external configuration, you can use `createPlugin({ name: '...', setup(auth) { ... } })` directly!
+
+**How to use it:**
+```typescript
+import { nanoauth } from 'nanoauth';
+import { magicLinkPlugin } from './my-plugins/magic-link';
+
+const auth = nanoauth({
+  adapter: myAdapter,
+  plugins: [
+    magicLinkPlugin({
+      generateToken: () => crypto.randomUUID(),
+      sendEmail: async (email, link) => {
+        console.log(`Sending login link to ${email}: ${link}`);
+      }
+    })
+  ]
+});
+
+// The custom method is now available!
+await auth.sendMagicLink('user@example.com');
+```
+
+---
+
 ## 🧪 Testing
 
 NanoAuth takes security seriously. The core functions and crypto utilities are tested exhaustively. Run the test suite:
@@ -266,5 +360,5 @@ We love contributions! The core principle is keeping the main package dependency
 
 <div align="center">
   <br/>
-  <p>Built with ❤️ by Advanced Agentic Coding</p>
+  <p>Built with ❤️ by fhorray</p>
 </div>

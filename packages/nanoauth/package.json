@@ -30,11 +30,6 @@
       "import": "./src/plugins/oauth.ts",
       "default": "./src/plugins/oauth.ts"
     },
-    "./hono": {
-      "types": "./src/integrations/hono.ts",
-      "import": "./src/integrations/hono.ts",
-      "default": "./src/integrations/hono.ts"
-    },
     "./utils": {
       "types": "./src/utils/index.ts",
       "import": "./src/utils/index.ts",

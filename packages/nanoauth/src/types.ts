@@ -41,16 +41,27 @@ export interface AuthAdapter<TUser extends User = User> {
 }
 
 /**
+ * Logger interface
+ */
+export interface AuthLogger {
+  warn(message: string, ...args: any[]): void
+  error(message: string, error?: any, ...args: any[]): void
+  info?(message: string, ...args: any[]): void
+  debug?(message: string, ...args: any[]): void
+}
+
+/**
  * Authentication configuration
  */
 export interface AuthConfig {
   debug?: boolean
+  logger?: AuthLogger
 }
 
 /**
  * Plugin - System extension
  */
-export interface Plugin<TUser extends User = User> {
+export interface Plugin<TUser extends User = User, TExports = {}> {
   name: string
   setup(auth: AuthCoreInstance<TUser>): void | Promise<void>
 }
@@ -75,7 +86,7 @@ export interface AuthCoreInstance<TUser extends User = User> {
   getState<T = any>(key: string): Promise<T | undefined>
   // Hooks / Events
   on<K extends keyof AuthEvents<TUser> & string>(
-    event: K, 
+    event: K,
     callback: (data: AuthEvents<TUser>[K]) => void | Promise<void>
   ): () => void
 
@@ -112,11 +123,20 @@ export interface NanoAuthHooks<TUser extends User = User> {
 }
 
 /**
+ * Helper types to extract exports from plugins array
+ */
+export type UnionToIntersection<U> = (U extends any ? (k: U) => void : never) extends (k: infer I) => void ? I : never;
+export type ExtractPluginExports<T> = T extends Plugin<any, infer E> ? E : {};
+
+/**
  * Main configuration options for nanoauth factory
  */
-export interface NanoAuthOptions<TUser extends User = User> extends AuthConfig {
+export interface NanoAuthOptions<
+  TUser extends User = User,
+  TPlugins extends Plugin<TUser, any>[] = Plugin<TUser, any>[]
+> extends AuthConfig {
   adapter: AuthAdapter<TUser>
-  plugins?: Plugin<TUser>[]
+  plugins?: [...TPlugins]
   hooks?: NanoAuthHooks<TUser>
   handler?: NanoAuthHandlerOptions
 }

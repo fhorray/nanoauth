@@ -244,6 +244,6 @@ app.route('/api', apiRoutes);
 console.log('🚀 NanoAuth Playground running at http://localhost:3000');
 
 export default {
-   port: 3001,
+   port: 3000,
    fetch: app.fetch,
 };

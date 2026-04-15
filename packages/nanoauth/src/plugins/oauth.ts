@@ -1,5 +1,6 @@
 import { generateId as createID, timingSafeEqual, encodeBase64 } from '../utils'
 import type { AuthCoreInstance, Plugin, User } from '../types'
+import { SecurityError } from '../errors'
 
 const oauthStateMap = new Map<string, string>()
 
@@ -27,6 +28,7 @@ export interface OAuthConfig<TUser extends User = User> {
   generateToken?: (user: TUser) => string | Promise<string>
   exchangeCodeForToken?: (provider: string, code: string, config: any) => Promise<any>
   getProfile?: (provider: string, token: any) => Promise<any>
+  generateAuthorizationUrl?: (provider: string, config: OAuthProvider) => string | Promise<string>
 }
 
 /**
@@ -38,10 +40,14 @@ export function oauthPlugin<TUser extends User = User>(config: OAuthConfig<TUser
 
     async setup(auth: AuthCoreInstance<TUser>) {
       // Get authorization URL
-      ; (auth as any).getOAuthAuthorizationUrl = (provider: string) => {
+      ; auth.getOAuthAuthorizationUrl = async (provider: string) => {
         const providerConfig = config.providers[provider]
         if (!providerConfig) {
           throw new Error(`Provider "${provider}" not found`)
+        }
+
+        if (config.generateAuthorizationUrl) {
+          return await config.generateAuthorizationUrl(provider, providerConfig)
         }
 
         // Generate random state
@@ -67,7 +73,7 @@ export function oauthPlugin<TUser extends User = User>(config: OAuthConfig<TUser
       }
 
         // OAuth Callback handler
-        ; (auth as any).handleOAuthCallback = async (provider: string, code: string, state: string) => {
+        ; auth.handleOAuthCallback = async (provider: string, code: string, state: string) => {
           try {
             const providerConfig = config.providers[provider]
             if (!providerConfig) {
@@ -78,12 +84,14 @@ export function oauthPlugin<TUser extends User = User>(config: OAuthConfig<TUser
             let savedState: string | null = null
             if (typeof sessionStorage !== 'undefined') {
               savedState = sessionStorage.getItem(`oauth_state_${provider}`)
+              sessionStorage.removeItem(`oauth_state_${provider}`) // Immediate invalidation to prevent replay attacks
             } else {
               savedState = oauthStateMap.get(`oauth_state_${provider}`) || null
+              oauthStateMap.delete(`oauth_state_${provider}`) // Immediate invalidation
             }
 
             if (!state || !savedState || !timingSafeEqual(new TextEncoder().encode(state), new TextEncoder().encode(savedState))) {
-              throw new Error('State mismatch - possible CSRF attempt')
+              throw new SecurityError('State mismatch - possible CSRF or replay attack attempt')
             }
 
             auth.setState('isLoading', true)
@@ -141,8 +149,8 @@ export function oauthPlugin<TUser extends User = User>(config: OAuthConfig<TUser
                 ...userData,
                 createdAt: new Date()
               } as any)
-            } 
-            
+            }
+
             // Link account (create provider connection)
             if (config.userRepository.linkAccount) {
               await config.userRepository.linkAccount(user!.id, provider, profile.id ?? profile.sub)
@@ -159,13 +167,6 @@ export function oauthPlugin<TUser extends User = User>(config: OAuthConfig<TUser
 
             auth.emit('afterLogin', { user, token, provider })
 
-            // Clear state
-            if (typeof sessionStorage !== 'undefined') {
-              sessionStorage.removeItem(`oauth_state_${provider}`)
-            } else {
-              oauthStateMap.delete(`oauth_state_${provider}`)
-            }
-
             return user
           } catch (error) {
             auth.setState('error', error as Error)
@@ -176,7 +177,7 @@ export function oauthPlugin<TUser extends User = User>(config: OAuthConfig<TUser
         }
 
         // Logout
-        ; (auth as any).logout = async () => {
+        ; auth.logout = async () => {
           try {
             auth.setState('isLoading', true)
             auth.emit('beforeLogout', {})

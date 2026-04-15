@@ -3,7 +3,7 @@ import { createAuth } from '../src/core';
 import { sessionPlugin } from '../src/plugins/session';
 import { emailPasswordPlugin } from '../src/plugins/email-password';
 import { oauthPlugin } from '../src/plugins/oauth';
-import { AuthAdapter, User } from '../src/types';
+import type { AuthAdapter, User } from '../src/types';
 
 const mockUsers = new Map<string, User & { password: string }>();
 
@@ -27,6 +27,7 @@ const mockAdapter: AuthAdapter = {
   },
   getSession: async (id: string) => {
   },
+  validateToken: async (token: string) => true,
   deleteSession: async (id: string) => {
 
   },
@@ -63,7 +64,7 @@ describe('Integration Tests - Full Auth Flow', () => {
           pwd = emailOrData.password;
           id = emailOrData.id || 'user-' + Date.now();
         }
-        mockUsers.set(id, { id, email, name: userName, password: pwd || '' });
+        mockUsers.set(id, { id, email, name: userName, role: 'user', password: pwd || '' });
         return { id, email, name: userName } as User;
       },
       updatePassword: async (userId: string, passwordHash: string) => {
@@ -98,7 +99,7 @@ describe('Integration Tests - Full Auth Flow', () => {
     auth.use(
       sessionPlugin({
         storage: 'memory',
-        tokenKey: 'accessToken',
+        storageKey: 'accessToken',
       })
     );
 
@@ -112,7 +113,6 @@ describe('Integration Tests - Full Auth Flow', () => {
     );
 
     // Signup
-    // @ts-expect-error - plugin adds method
     const signupResult = await auth.signup({
       email: 'testuser@example.com',
       password: 'securepass123',
@@ -124,13 +124,11 @@ describe('Integration Tests - Full Auth Flow', () => {
     expect(signupResult.name).toBe('Test User');
 
     // Emit signup hook
-    // @ts-expect-error - protected method
     auth.emit('afterSignup', { user: signupResult });
     await new Promise(resolve => setTimeout(resolve, 10));
     expect(signupHookCalled).toBe(true);
 
     // Login
-    // @ts-expect-error - plugin adds method
     const loginResult = await auth.login({
       email: 'testuser@example.com',
       password: 'securepass123',
@@ -140,7 +138,6 @@ describe('Integration Tests - Full Auth Flow', () => {
     expect(loginResult.email).toBe('testuser@example.com');
 
     // Emit login hook
-    // @ts-expect-error - protected method
     auth.emit('afterLogin', { user: loginResult });
     await new Promise(resolve => setTimeout(resolve, 10));
     expect(loginHookCalled).toBe(true);
@@ -162,7 +159,6 @@ describe('Integration Tests - Full Auth Flow', () => {
     );
 
     // Create user
-    // @ts-expect-error - plugin adds method
     await auth.signup({
       email: 'user@example.com',
       password: 'oldpass123',
@@ -170,7 +166,6 @@ describe('Integration Tests - Full Auth Flow', () => {
     });
 
     // Change password
-    // @ts-expect-error - plugin adds method
     const changeResult = await auth.changePassword({
       email: 'user@example.com',
       oldPassword: 'oldpass123',
@@ -180,7 +175,6 @@ describe('Integration Tests - Full Auth Flow', () => {
     expect(changeResult).toBe(true);
 
     // Login with new password
-    // @ts-expect-error - plugin adds method
     const loginResult = await auth.login({
       email: 'user@example.com',
       password: 'newpass456',
@@ -210,14 +204,12 @@ describe('Integration Tests - Full Auth Flow', () => {
     }
 
     // Signup users
-    // @ts-expect-error - plugin adds method
     const user1 = await auth1.signup({
       email: 'user1@example.com',
       password: 'pass1',
       name: 'User 1',
     });
 
-    // @ts-expect-error - plugin adds method
     const user2 = await auth2.signup({
       email: 'user2@example.com',
       password: 'pass2',
@@ -230,10 +222,8 @@ describe('Integration Tests - Full Auth Flow', () => {
     expect(user2.email).toBe('user2@example.com');
 
     // Set user state separately
-    // @ts-expect-error - protected method
-    auth1.setState('user', user1);
-    // @ts-expect-error - protected method
-    auth2.setState('user', user2);
+    (auth1 as any).setState('user', user1);
+    (auth2 as any).setState('user', user2);
 
     // Verify separate states
     const state1 = await auth1.getState('user');
@@ -275,12 +265,12 @@ describe('Integration Tests - Full Auth Flow', () => {
           findByOAuthId: async (provider, oauthId) => null,
           create: async (user) => user,
         },
-        generateAuthorizationUrl: async (provider, config) => {
+        generateAuthorizationUrl: async (provider: any, config: any) => {
           const state = 'state-' + Date.now();
           oauthStates.set(state, { provider, timestamp: Date.now() });
           return `https://accounts.google.com/oauth/authorize?state=${state}`;
         },
-        mapProfile: async (provider, profile) => ({
+        mapOAuthProfile: async (provider: any, profile: any) => ({
           id: profile.id,
           email: profile.email,
           name: profile.name,
@@ -289,7 +279,6 @@ describe('Integration Tests - Full Auth Flow', () => {
     );
 
     // Fallback: also support email-password login
-    // @ts-expect-error - plugin adds method
     const emailUser = await auth.signup({
       email: 'emailuser@example.com',
       password: 'emailpass123',
@@ -298,7 +287,6 @@ describe('Integration Tests - Full Auth Flow', () => {
 
     expect(emailUser).toBeDefined();
 
-    // @ts-expect-error - plugin adds method
     const oauthUrl = await auth.getOAuthAuthorizationUrl('google');
     expect(oauthUrl).toContain('accounts.google.com');
   });
@@ -307,7 +295,7 @@ describe('Integration Tests - Full Auth Flow', () => {
     auth.use(
       sessionPlugin({
         storage: 'memory',
-        tokenKey: 'accessToken',
+        storageKey: 'accessToken',
       })
     );
 
@@ -316,15 +304,12 @@ describe('Integration Tests - Full Auth Flow', () => {
       stateChangeCount++;
     });
 
-    // @ts-expect-error - protected method
     auth.setState('sessionToken', 'token-1');
     await new Promise(resolve => setTimeout(resolve, 5));
 
-    // @ts-expect-error - protected method
     auth.setState('sessionToken', 'token-2');
     await new Promise(resolve => setTimeout(resolve, 5));
 
-    // @ts-expect-error - protected method
     auth.setState('sessionToken', 'token-3');
     await new Promise(resolve => setTimeout(resolve, 5));
 
@@ -347,7 +332,6 @@ describe('Integration Tests - Full Auth Flow', () => {
 
     // Test invalid email
     try {
-      // @ts-expect-error - plugin adds method
       await auth.signup({
         email: 'not-an-email',
         password: 'pass123',
@@ -360,7 +344,6 @@ describe('Integration Tests - Full Auth Flow', () => {
 
     // Test non-existent user login
     try {
-      // @ts-expect-error - plugin adds method
       await auth.login({
         email: 'nonexistent@example.com',
         password: 'pass123',
@@ -386,15 +369,24 @@ describe('Integration Tests - Full Auth Flow', () => {
         oauthPlugin({
           providers: {
             test: {
+              name: 'test',
               clientId: 'test-id',
               clientSecret: 'test-secret',
               redirectUri: 'http://localhost/callback/test',
+              authorizationUrl: 'https://test.example.com/auth',
+              tokenUrl: 'https://test.example.com/token',
+              userInfoUrl: 'https://test.example.com/userinfo',
+              scope: ['email'],
             },
           },
-          generateAuthorizationUrl: async (provider, config) => {
+          userRepository: {
+            findByOAuthId: async (provider: string, oauthId: string) => null,
+            create: async (user: any) => user,
+          },
+          generateAuthorizationUrl: async (provider: any, config: any) => {
             return `https://test.example.com/auth`;
           },
-          mapProfile: async (provider, profile) => ({
+          mapOAuthProfile: async (provider: any, profile: any) => ({
             id: profile.id,
             email: profile.email,
             name: profile.name,
@@ -428,13 +420,9 @@ describe('Integration Tests - Full Auth Flow', () => {
     );
 
     // Emit hooks
-    // @ts-expect-error - protected method
     auth.emit('beforeLogin', {});
-    // @ts-expect-error - protected method
     auth.emit('afterLogin', {});
-    // @ts-expect-error - protected method
     auth.emit('beforeLogout', {});
-    // @ts-expect-error - protected method
     auth.emit('afterLogout', {});
 
     await new Promise(resolve => setTimeout(resolve, 20));

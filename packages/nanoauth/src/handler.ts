@@ -1,5 +1,6 @@
 import { serializeCookie } from './utils/cookie'
 import type { AuthCoreInstance, User, NanoAuthHandlerOptions } from './types'
+import { AuthenticationError, SecurityError, ValidationError } from './errors'
 
 export async function handleRequest<TUser extends User = User>(
   request: Request,
@@ -25,7 +26,7 @@ export async function handleRequest<TUser extends User = User>(
 
   // Route matching based on the end of the pathname
   // This allows it to work under any prefix (e.g., /api/auth/login or /auth/login)
-  
+
   if (method === 'POST' && pathname.endsWith('/signup')) {
     try {
       const body = await request.json()
@@ -43,8 +44,12 @@ export async function handleRequest<TUser extends User = User>(
 
       return response
     } catch (error: any) {
+      let status = 400;
+      if (error instanceof ValidationError) status = 400;
+      else if (error instanceof SecurityError) status = 403;
+
       return new Response(JSON.stringify({ error: error.message }), {
-        status: 400,
+        status,
         headers: { 'Content-Type': 'application/json' }
       })
     }
@@ -67,8 +72,13 @@ export async function handleRequest<TUser extends User = User>(
 
       return response
     } catch (error: any) {
+      let status = 401;
+      if (error instanceof AuthenticationError) status = 401;
+      else if (error instanceof ValidationError) status = 400;
+      else if (error instanceof SecurityError) status = 403;
+
       return new Response(JSON.stringify({ error: error.message }), {
-        status: 401,
+        status,
         headers: { 'Content-Type': 'application/json' }
       })
     }
@@ -77,7 +87,7 @@ export async function handleRequest<TUser extends User = User>(
   if (method === 'POST' && pathname.endsWith('/logout')) {
     try {
       await auth.logout()
-      
+
       const response = new Response(JSON.stringify({ message: 'Logged out' }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' }
@@ -85,7 +95,7 @@ export async function handleRequest<TUser extends User = User>(
 
       // Delete cookie
       response.headers.append(
-        'Set-Cookie', 
+        'Set-Cookie',
         serializeCookie(cookieName, '', { ...cookieOptions, maxAge: 0 })
       )
 
@@ -141,10 +151,10 @@ export async function handleRequest<TUser extends User = User>(
     try {
       // The plugin handles the exchange, user creation/finding, and state updates
       await oauthAuth.handleOAuthCallback(provider, code, state!)
-      
+
       // Get the generated token from state (set by the plugin)
       const token = await auth.getState<string>('token')
-      
+
       const response = Response.redirect(successRedirect, 302)
 
       if (token) {

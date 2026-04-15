@@ -4,7 +4,7 @@
  * Main class that manages the authentication state and logic
  */
 
-import type { AuthAdapter, AuthConfig, AuthCoreInstance, NanoAuthOptions, Plugin, User, AuthEvents } from './types'
+import type { AuthAdapter, AuthConfig, AuthCoreInstance, NanoAuthOptions, Plugin, User, AuthEvents, UnionToIntersection, ExtractPluginExports } from './types'
 import { handleRequest } from './handler'
 
 /**
@@ -70,7 +70,11 @@ export class AuthCore<TUser extends User = User> implements AuthCoreInstance<TUs
       try {
         callback(value)
       } catch (error) {
-        console.error(`Error in observer for key "${key}":`, error)
+        if (this.config.logger) {
+          this.config.logger.error(`Error in observer for key "${key}":`, error)
+        } else {
+          console.error(`Error in observer for key "${key}":`, error)
+        }
       }
     })
   }
@@ -105,7 +109,11 @@ export class AuthCore<TUser extends User = User> implements AuthCoreInstance<TUs
       try {
         callback(...args)
       } catch (error) {
-        console.error(`Error in hook "${event}":`, error)
+        if (this.config.logger) {
+          this.config.logger.error(`Error in hook "${event}":`, error)
+        } else {
+          console.error(`Error in hook "${event}":`, error)
+        }
       }
     })
   }
@@ -161,7 +169,12 @@ export function createAuth<TUser extends User = User>(
 /**
  * Modern declarative factory (Better Auth style)
  */
-export function nanoauth<TUser extends User = User>(options: NanoAuthOptions<TUser>): AuthCore<TUser> {
+export function nanoauth<
+  TUser extends User = User,
+  TPlugins extends Plugin<TUser, any>[] = Plugin<TUser, any>[]
+>(
+  options: NanoAuthOptions<TUser, TPlugins>
+): AuthCore<TUser> & UnionToIntersection<ExtractPluginExports<TPlugins[number]>> {
   const { adapter, plugins, hooks } = options
 
   // 1. Wrap adapter with database interceptors if hooks exist
@@ -249,5 +262,5 @@ export function nanoauth<TUser extends User = User>(options: NanoAuthOptions<TUs
   const handlerOpts = options.handler || {}
     ; (auth as any).handler = (request: Request) => handleRequest(request, auth, handlerOpts)
 
-  return auth
+  return auth as AuthCore<TUser> & UnionToIntersection<ExtractPluginExports<TPlugins[number]>>
 }

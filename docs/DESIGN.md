@@ -230,7 +230,7 @@ export function seuPlugin(config: SeuPluginConfig): Plugin {
 
     async setup(auth: AuthCore) {
       // 1. Adicionar métodos
-      ;(auth as any).seuMetodo = async (param: string) => {
+      ;auth.seuMetodo = async (param: string) => {
         // sua lógica
       }
 
@@ -288,7 +288,7 @@ export function emailPasswordPlugin(config: EmailPluginConfig): Plugin {
 
     async setup(auth: AuthCore) {
       // Implementar login
-      ;(auth as any).login = async (email: string, password: string) => {
+      ;auth.login = async (email: string, password: string) => {
         try {
           auth.setState('isLoading', true)
           auth.emit('beforeLogin', { email })
@@ -327,7 +327,7 @@ export function emailPasswordPlugin(config: EmailPluginConfig): Plugin {
       }
 
       // Implementar signup
-      ;(auth as any).signup = async (email: string, password: string, name: string) => {
+      ;auth.signup = async (email: string, password: string, name: string) => {
         try {
           auth.setState('isLoading', true)
 
@@ -371,7 +371,7 @@ export function emailPasswordPlugin(config: EmailPluginConfig): Plugin {
       }
 
       // Métodos customizados do plugin
-      ;(auth as any).changePassword = async (
+      ;auth.changePassword = async (
         email: string,
         oldPassword: string,
         newPassword: string
@@ -386,7 +386,7 @@ export function emailPasswordPlugin(config: EmailPluginConfig): Plugin {
         await config.userRepository.updatePassword(user.id, newHash)
       }
 
-      ;(auth as any).resetPassword = async (email: string, newPassword: string) => {
+      ;auth.resetPassword = async (email: string, newPassword: string) => {
         // sua lógica de reset
       }
     }
@@ -459,7 +459,7 @@ export function sessionPlugin(config: SessionPluginConfig): Plugin {
       })
 
       // Restaurar sessão ao inicializar
-      ;(auth as any).restoreSession = async () => {
+      ;auth.restoreSession = async () => {
         let token: string | null = null
 
         // VOCÊ DECIDE COMO RECUPERAR
@@ -478,7 +478,7 @@ export function sessionPlugin(config: SessionPluginConfig): Plugin {
           const isValid = await config.validateToken(token)
           if (!isValid) {
             // Token expirado, limpar
-            await (auth as any).clearSession()
+            await auth.clearSession()
             if (config.onTokenExpired) {
               config.onTokenExpired()
             }
@@ -487,7 +487,7 @@ export function sessionPlugin(config: SessionPluginConfig): Plugin {
 
           // Aqui você pode buscar dados atualizados do usuário
           // Se tiver um plugin que implementa getUser()
-          const user = await (auth as any).getUser?.(token)
+          const user = await auth.getUser?.(token)
           if (user) {
             auth.setState('user', user)
             auth.setState('token', token)
@@ -495,12 +495,12 @@ export function sessionPlugin(config: SessionPluginConfig): Plugin {
 
           auth.setState('isLoading', false)
         } catch (error) {
-          await (auth as any).clearSession()
+          await auth.clearSession()
         }
       }
 
       // Limpar sessão
-      ;(auth as any).clearSession = async () => {
+      ;auth.clearSession = async () => {
         if (config.storage === 'localStorage') {
           localStorage.removeItem(config.storageKey ?? 'auth:token')
         } else if (config.storage === 'cookie') {
@@ -513,7 +513,7 @@ export function sessionPlugin(config: SessionPluginConfig): Plugin {
 
       // Refresh token se implementado
       if (config.refreshTokenFn) {
-        ;(auth as any).refreshToken = async () => {
+        ;auth.refreshToken = async () => {
           const refreshToken = localStorage.getItem(config.refreshTokenKey ?? 'auth:refresh')
           if (!refreshToken) throw new Error('No refresh token')
 
@@ -528,7 +528,7 @@ export function sessionPlugin(config: SessionPluginConfig): Plugin {
         if (config.autoRefreshTokens && config.tokenExpirationTime) {
           setInterval(async () => {
             try {
-              await (auth as any).refreshToken()
+              await auth.refreshToken()
             } catch (error) {
               console.error('Token refresh falhou:', error)
             }
@@ -538,7 +538,7 @@ export function sessionPlugin(config: SessionPluginConfig): Plugin {
 
       // Limpar sessão ao fazer logout
       auth.on('afterLogout', async () => {
-        await (auth as any).clearSession()
+        await auth.clearSession()
       })
     }
   }
@@ -581,7 +581,7 @@ export function oauthPlugin(config: OAuthPluginConfig): Plugin {
     name: 'oauth',
 
     async setup(auth: AuthCore) {
-      ;(auth as any).getOAuthUrl = (provider: string) => {
+      ;auth.getOAuthUrl = (provider: string) => {
         const providerConfig = config.providers[provider]
         if (!providerConfig) throw new Error(`Provider ${provider} not found`)
 
@@ -600,7 +600,7 @@ export function oauthPlugin(config: OAuthPluginConfig): Plugin {
         return `${providerConfig.authorizationUrl}?${params.toString()}`
       }
 
-      ;(auth as any).handleOAuthCallback = async (provider: string, code: string, state: string) => {
+      ;auth.handleOAuthCallback = async (provider: string, code: string, state: string) => {
         try {
           const providerConfig = config.providers[provider]
           if (!providerConfig) throw new Error(`Provider ${provider} not found`)
@@ -955,7 +955,7 @@ export function meuPluginCustomizado(): Plugin {
       auth.setState('meuEstado', {})
 
       // Adicionar método
-      ;(auth as any).meuMetodo = async (param: string) => {
+      ;auth.meuMetodo = async (param: string) => {
         // sua lógica
       }
 

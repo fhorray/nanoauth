@@ -11,7 +11,9 @@
   "scripts": {
     "check-types": "tsc --noEmit",
     "build": "turbo run build",
-    "dev": "turbo run dev"
+    "dev": "turbo run dev",
+    "db:gen": "turbo run db:gen",
+    "db:push": "turbo run db:push"
   },
   "devDependencies": {
     "@types/bun": "latest",

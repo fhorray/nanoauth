@@ -1,12 +1,12 @@
 import { describe, it, expect } from "bun:test";
-import { 
-  generateRandomBytes, 
-  generateId, 
-  hashSHA256, 
-  timingSafeEqual, 
-  computeHMAC256 
-} from "./crypto";
-import { encodeHex } from "./encoding";
+import {
+  generateRandomBytes,
+  generateId,
+  hashSHA256,
+  timingSafeEqual,
+  computeHMAC256
+} from "../crypto";
+import { encodeHex } from "../encoding";
 
 describe("Crypto Utils", () => {
   describe("Randomness", () => {

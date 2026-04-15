@@ -1,25 +1,28 @@
 import { describe, it, expect, beforeEach } from 'bun:test';
 import { createAuth } from '../../core';
 import { emailPasswordPlugin } from '../email-password';
-import { AuthAdapter, User } from '../../types';
+import type { AuthAdapter, User } from '../../types';
 
 const mockUsers = new Map<string, User & { password: string }>();
 
 const mockAdapter: AuthAdapter = {
-  storeUser: async (user) => {
+  storeUser: async (user: any) => {
     mockUsers.set(user.id, { ...user, password: '' });
     return user;
   },
-  getUser: async (id) => {
+  getUser: async (id: string) => {
     const user = mockUsers.get(id);
     if (!user) return null;
     const { password, ...userWithoutPassword } = user;
     return userWithoutPassword as User;
   },
-  deleteUser: async (id) => {
+  deleteUser: async (id: any) => {
     mockUsers.delete(id);
     return true;
   },
+  saveSession: async (sessionId: string, data: any) => { },
+  validateToken: async (token: string) => true,
+  deleteSession: async (sessionId: string) => { },
 };
 
 describe('Email-Password Plugin', () => {
@@ -55,9 +58,9 @@ describe('Email-Password Plugin', () => {
           pwd = emailOrData.password;
           id = emailOrData.id || 'user-' + Date.now();
         }
-        const user: User & { password: string } = { id, email, name: userName, password: pwd || '' };
+        const user: User & { password: string } = { id, email, name: userName, role: 'user', password: pwd || '' };
         mockUsers.set(id, user);
-        return { id, email, name: userName } as User;
+        return { id, email, name: userName, role: 'user' } as User;
       },
       updatePassword: async (userId: string, passwordHash: string) => {
         const user = mockUsers.get(userId);
@@ -101,7 +104,6 @@ describe('Email-Password Plugin', () => {
       })
     );
 
-    // @ts-expect-error - plugin adds methods
     const result = await auth.signup({
       email: 'newuser@example.com',
       password: 'password123',
@@ -129,7 +131,6 @@ describe('Email-Password Plugin', () => {
     );
 
     try {
-      // @ts-expect-error - plugin adds methods
       await auth.signup({
         email: 'invalid-email',
         password: 'password123',
@@ -155,7 +156,6 @@ describe('Email-Password Plugin', () => {
     );
 
     try {
-      // @ts-expect-error - plugin adds methods
       await auth.signup({
         email: 'existing@example.com',
         password: 'password123',
@@ -180,7 +180,6 @@ describe('Email-Password Plugin', () => {
       })
     );
 
-    // @ts-expect-error - plugin adds methods
     const result = await auth.login({
       email: 'user@example.com',
       password: 'password123',
@@ -205,7 +204,6 @@ describe('Email-Password Plugin', () => {
     );
 
     try {
-      // @ts-expect-error - plugin adds methods
       await auth.login({
         email: 'user@example.com',
         password: 'wrong-password',
@@ -227,7 +225,6 @@ describe('Email-Password Plugin', () => {
     );
 
     try {
-      // @ts-expect-error - plugin adds methods
       await auth.login({
         email: 'nonexistent@example.com',
         password: 'password123',
@@ -251,7 +248,6 @@ describe('Email-Password Plugin', () => {
       })
     );
 
-    // @ts-expect-error - plugin adds methods
     const result = await auth.changePassword({
       email: 'user@example.com',
       oldPassword: 'oldpassword',
@@ -261,7 +257,6 @@ describe('Email-Password Plugin', () => {
     expect(result).toBe(true);
 
     // Verify new password works
-    // @ts-expect-error - plugin adds methods
     const loginResult = await auth.login({
       email: 'user@example.com',
       password: 'newpassword',
@@ -284,7 +279,6 @@ describe('Email-Password Plugin', () => {
     );
 
     try {
-      // @ts-expect-error - plugin adds methods
       await auth.changePassword({
         email: 'user@example.com',
         oldPassword: 'wrongpassword',
@@ -309,7 +303,6 @@ describe('Email-Password Plugin', () => {
       })
     );
 
-    // @ts-expect-error - plugin adds methods
     const result = await auth.resetPassword({
       email: 'user@example.com',
       newPassword: 'resetpassword',
@@ -338,7 +331,6 @@ describe('Email-Password Plugin', () => {
     );
 
     try {
-      // @ts-expect-error - plugin adds methods
       await auth.signup({
         email: 'user@example.com',
         password: 'short', // Only 5 characters
@@ -366,14 +358,12 @@ describe('Email-Password Plugin', () => {
       })
     );
 
-    // @ts-expect-error - plugin adds methods
     await auth.signup({
       email: 'user@example.com',
       password: 'password123',
       name: 'Test User',
     });
 
-    // @ts-expect-error - protected method
     auth.emit('signup', {});
 
     await new Promise(resolve => setTimeout(resolve, 10));

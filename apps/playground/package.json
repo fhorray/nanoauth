@@ -6,8 +6,8 @@
     "dev": "bun run --watch src/index.ts",
     "build": "tsc",
     "start": "bun run src/index.ts",
-    "gen:db": "bunx drizzle-kit generate",
-    "push:db": "bunx drizzle-kit push"
+    "db:gen": "bunx drizzle-kit generate",
+    "db:push": "bunx drizzle-kit push"
   },
   "dependencies": {
     "@libsql/client": "^0.17.2",

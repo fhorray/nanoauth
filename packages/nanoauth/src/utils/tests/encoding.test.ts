@@ -1,10 +1,10 @@
 import { describe, it, expect } from "bun:test";
-import { 
-  encodeHex, decodeHex, 
-  encodeBase64, decodeBase64, 
+import {
+  encodeHex, decodeHex,
+  encodeBase64, decodeBase64,
   encodeBase64url, decodeBase64url,
-  encodeBase32, decodeBase32 
-} from "./encoding";
+  encodeBase32, decodeBase32
+} from "../encoding";
 
 describe("Encoding Utils", () => {
   const testData = new TextEncoder().encode("Hello, NanoAuth! 🚀 12345");

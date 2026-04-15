@@ -150,7 +150,7 @@ export function emailPasswordPlugin(config: EmailPasswordConfig): Plugin {
 
     async setup(auth: AuthCore) {
       // Método login
-      (auth as any).login = async (email: string, password: string) => {
+      auth.login = async (email: string, password: string) => {
         try {
           auth.setState('isLoading', true);
           auth.emit('beforeLogin', { email });
@@ -192,7 +192,7 @@ export function emailPasswordPlugin(config: EmailPasswordConfig): Plugin {
       };
 
       // Método signup
-      (auth as any).signup = async (
+      auth.signup = async (
         email: string,
         password: string,
         name: string,
@@ -230,7 +230,7 @@ export function emailPasswordPlugin(config: EmailPasswordConfig): Plugin {
       };
 
       // Métodos específicos do plugin
-      (auth as any).changePassword = async (
+      auth.changePassword = async (
         email: string,
         oldPassword: string,
         newPassword: string,
@@ -463,7 +463,7 @@ export function oauthPlugin(config: OAuthConfig): Plugin {
 
     async setup(auth: AuthCore) {
       // Gerar URL de autorização
-      (auth as any).getOAuthAuthorizationUrl = (providerName: string) => {
+      auth.getOAuthAuthorizationUrl = (providerName: string) => {
         const provider = config.providers[providerName];
         if (!provider)
           throw new Error(`Provider ${providerName} não encontrado`);
@@ -483,7 +483,7 @@ export function oauthPlugin(config: OAuthConfig): Plugin {
       };
 
       // Callback do OAuth
-      (auth as any).handleOAuthCallback = async (
+      auth.handleOAuthCallback = async (
         providerName: string,
         code: string,
         state: string,
@@ -641,7 +641,7 @@ export function sessionPlugin(config: SessionConfig): Plugin {
       const storage = getStorage();
 
       // Restaurar sessão ao inicializar
-      (auth as any).restoreSession = async () => {
+      auth.restoreSession = async () => {
         const token = getToken();
         if (!token) return;
 
@@ -657,7 +657,7 @@ export function sessionPlugin(config: SessionConfig): Plugin {
           auth.emit('beforeRestoreSession', { token });
 
           // Aqui assumimos que outro plugin tem getUser()
-          const user = await (auth as any).getUser?.(token);
+          const user = await auth.getUser?.(token);
           if (user) {
             auth.setState('user', user);
             auth.setState('token', token);
@@ -671,7 +671,7 @@ export function sessionPlugin(config: SessionConfig): Plugin {
       };
 
       // Refresh token
-      (auth as any).refreshToken = async () => {
+      auth.refreshToken = async () => {
         try {
           const refreshToken = getRefreshToken();
           if (!refreshToken) throw new Error('No refresh token');
@@ -700,7 +700,7 @@ export function sessionPlugin(config: SessionConfig): Plugin {
       };
 
       // Limpar sessão
-      (auth as any).clearSession = async () => {
+      auth.clearSession = async () => {
         clearStorage();
         auth.setState('user', null);
         auth.setState('token', null);
@@ -719,7 +719,7 @@ export function sessionPlugin(config: SessionConfig): Plugin {
       if (config.tokenExpirationTime) {
         setInterval(async () => {
           try {
-            await (auth as any).refreshToken();
+            await auth.refreshToken();
           } catch (error) {
             console.error('Token refresh falhou:', error);
           }
@@ -833,9 +833,9 @@ export function rateLimitPlugin(config: RateLimitConfig): Plugin {
 
     async setup(auth: AuthCore) {
       // Interceptar método login
-      const originalLogin = (auth as any).login;
+      const originalLogin = auth.login;
 
-      (auth as any).login = async (email: string, password: string) => {
+      auth.login = async (email: string, password: string) => {
         const key = email;
         const attempt = attempts.get(key);
 
@@ -966,7 +966,7 @@ auth.logout(): Promise<void>
 auth.signup(...args: any[]): Promise<User>
 
 // Qualquer outro método adicionado por plugins
-;(auth as any).meuMetodo?.(...)
+;auth.meuMetodo?.(...)
 ```
 
 ---

@@ -17,7 +17,7 @@ export async function authMiddleware(c: Context, next: Next) {
   let token: string | null = null
 
   if (authHeader && authHeader.startsWith('Bearer ')) {
-    token = authHeader.split(' ')[1]
+    token = authHeader.split(' ')[1] || null;
   } else if (authCookie) {
     token = authCookie
   }

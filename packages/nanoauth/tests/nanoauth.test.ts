@@ -1,13 +1,13 @@
 import { expect, test, describe, mock } from 'bun:test'
-import { nanoauth } from '../src/core'
+import { createAuth, nanoauth } from '../src/core'
 import type { AuthAdapter, Plugin } from '../src/types'
 
 describe('NanoAuth Declarative Factory', () => {
   const dummyAdapter: AuthAdapter = {
-    getUser: mock(async (id) => ({ id, email: 'test@example.com', name: 'Test' })),
-    saveSession: mock(async () => {}),
+    getUser: mock(async (id) => ({ id, email: 'test@example.com', name: 'Test', role: 'user' })),
+    saveSession: mock(async () => { }),
     validateToken: mock(async () => true),
-    deleteSession: mock(async () => {})
+    deleteSession: mock(async () => { })
   }
 
   test('should load plugins automatically', async () => {
@@ -27,14 +27,9 @@ describe('NanoAuth Declarative Factory', () => {
 
   test('should register global event hooks', async () => {
     let eventData: any = null
-    const auth = nanoauth({
-      adapter: dummyAdapter,
-      hooks: {
-        afterLogin: (data) => { eventData = data }
-      }
-    })
+    const auth = createAuth(dummyAdapter) as any
 
-    // Simular evento
+    auth.on('afterLogin', (data: any) => { eventData = data })
     auth.emit('afterLogin', { user: { id: '1' }, token: 'abc' })
     expect(eventData).toEqual({ user: { id: '1' }, token: 'abc' })
   })
@@ -50,9 +45,9 @@ describe('NanoAuth Declarative Factory', () => {
             return next(id)
           }
         }
-      })
+      }) as any
 
-      const user = await (auth as any).adapter.getUser('123')
+      const user = await auth.adapter.getUser('123')
       expect(intercepted).toBe(true)
       expect(user.id).toBe('123')
       expect(dummyAdapter.getUser).toHaveBeenCalled()
@@ -68,7 +63,7 @@ describe('NanoAuth Declarative Factory', () => {
         }
       })
 
-      await (auth as any).adapter.getUser('original-id')
+      await auth.adapter.getUser('original-id')
       expect(dummyAdapter.getUser).toHaveBeenCalledWith('mutated-id')
     })
 
@@ -83,7 +78,7 @@ describe('NanoAuth Declarative Factory', () => {
         }
       })
 
-      expect((auth as any).adapter.getUser('123')).rejects.toThrow(
+      expect(auth.adapter.getUser('123')).rejects.toThrow(
         /Interceptor hook 'onGetUser' finished execution without calling next\(\)/
       )
     })
@@ -101,7 +96,7 @@ describe('NanoAuth Declarative Factory', () => {
         }
       })
 
-      await (auth as any).adapter.saveSession('sess_1', {})
+      await auth.adapter.saveSession('sess_1', {})
       expect(order).toEqual(['before', 'after'])
     })
   })

@@ -25,7 +25,7 @@ export function emailPasswordPlugin<TUser extends User = User>(config: EmailPass
 
     async setup(auth: AuthCoreInstance<TUser>) {
       // Login method
-      ; (auth as any).login = async (emailOrData: string | Credentials, password?: string) => {
+      auth.login = async (emailOrData: string | Credentials, password?: string) => {
         // Handle both calling styles: login(email, password) or login({email, password})
         let email: string, pwd: string;
 
@@ -81,78 +81,78 @@ export function emailPasswordPlugin<TUser extends User = User>(config: EmailPass
         }
       }
 
-        // Signup method
-        ; (auth as any).signup = async (emailOrData: string | SignupData, password?: string, name?: string) => {
-          // Handle both calling styles: signup(email, password, name) or signup({email, password, name})
-          let email: string, pwd: string, userName: string;
+      // Signup method
+      auth.signup = async (emailOrData: string | SignupData, password?: string, name?: string) => {
+        // Handle both calling styles: signup(email, password, name) or signup({email, password, name})
+        let email: string, pwd: string, userName: string;
 
-          if (typeof emailOrData === 'string') {
-            email = emailOrData;
-            pwd = password!;
-            userName = name!;
-          } else {
-            email = emailOrData.email;
-            pwd = emailOrData.password;
-            userName = emailOrData.name;
-          }
-
-          try {
-            auth.setState('isLoading', true)
-            auth.emit('beforeSignup', { email, name: userName })
-
-            // Validate email
-            if (config.validateEmail && !config.validateEmail(email)) {
-              throw new Error('Invalid email')
-            }
-
-            // Validate password
-            if (config.validatePassword && !config.validatePassword(pwd)) {
-              throw new Error('Password does not meet requirements')
-            }
-
-            // Check if email already exists
-            const exists = await config.userRepository.findByEmail(email)
-            if (exists) {
-              throw new Error('Email already exists')
-            }
-
-            // Hash password
-            if (!config.hashPassword) {
-              throw new Error('hashPassword function not provided')
-            }
-
-            const passwordHash = await config.hashPassword(pwd)
-
-            // Create user
-            const newUser = await config.userRepository.create({
-              id: createID(),
-              email,
-              name: userName,
-              password: passwordHash,
-              createdAt: new Date()
-            } as any)
-
-            // Generate token
-            const token = await (config.generateToken?.(newUser) ?? generateSimpleToken(newUser))
-
-            // Update state
-            auth.setState('user', newUser)
-            auth.setState('token', token)
-            auth.setState('error', null)
-            auth.setState('isLoading', false)
-
-            auth.emit('afterSignup', { user: newUser, token })
-            return newUser
-          } catch (error) {
-            auth.setState('error', error as Error)
-            auth.setState('isLoading', false)
-            auth.emit('onError', error)
-            throw error
-          }
+        if (typeof emailOrData === 'string') {
+          email = emailOrData;
+          pwd = password!;
+          userName = name!;
+        } else {
+          email = emailOrData.email;
+          pwd = emailOrData.password;
+          userName = emailOrData.name;
         }
 
+        try {
+          auth.setState('isLoading', true)
+          auth.emit('beforeSignup', { email, name: userName })
+
+          // Validate email
+          if (config.validateEmail && !config.validateEmail(email)) {
+            throw new Error('Invalid email')
+          }
+
+          // Validate password
+          if (config.validatePassword && !config.validatePassword(pwd)) {
+            throw new Error('Password does not meet requirements')
+          }
+
+          // Check if email already exists
+          const exists = await config.userRepository.findByEmail(email)
+          if (exists) {
+            throw new Error('Email already exists')
+          }
+
+          // Hash password
+          if (!config.hashPassword) {
+            throw new Error('hashPassword function not provided')
+          }
+
+          const passwordHash = await config.hashPassword(pwd)
+
+          // Create user
+          const newUser = await config.userRepository.create({
+            id: createID(),
+            email,
+            name: userName,
+            password: passwordHash,
+            createdAt: new Date()
+          } as any)
+
+          // Generate token
+          const token = await (config.generateToken?.(newUser) ?? generateSimpleToken(newUser))
+
+          // Update state
+          auth.setState('user', newUser)
+          auth.setState('token', token)
+          auth.setState('error', null)
+          auth.setState('isLoading', false)
+
+          auth.emit('afterSignup', { user: newUser, token })
+          return newUser
+        } catch (error) {
+          auth.setState('error', error as Error)
+          auth.setState('isLoading', false)
+          auth.emit('onError', error)
+          throw error
+        }
+      }
+
       // Change password method
-      ; (auth as any).changePassword = async (
+      auth.changePassword = async (
         emailOrData: string | any,
         oldPassword?: string,
         newPassword?: string
@@ -208,46 +208,46 @@ export function emailPasswordPlugin<TUser extends User = User>(config: EmailPass
         }
       }
 
-        // Reset password method
-        ; (auth as any).resetPassword = async (emailOrData: string | any, newPassword?: string) => {
-          let email: string, newPwd: string;
+      // Reset password method
+      auth.resetPassword = async (emailOrData: string | any, newPassword?: string) => {
+        let email: string, newPwd: string;
 
-          if (typeof emailOrData === 'string') {
-            email = emailOrData;
-            newPwd = newPassword!;
-          } else {
-            email = emailOrData.email;
-            newPwd = emailOrData.newPassword;
-          }
-
-          try {
-            auth.setState('isLoading', true)
-
-            // Find user
-            const user = await config.userRepository.findByEmail(email)
-            if (!user) {
-              throw new Error('User not found')
-            }
-
-            // Hash new password
-            if (!config.hashPassword) {
-              throw new Error('hashPassword function not provided')
-            }
-
-            const newHash = await config.hashPassword(newPwd)
-            await config.userRepository.updatePassword(user.id, newHash)
-
-            auth.setState('error', null)
-            auth.setState('isLoading', false)
-            auth.emit('afterPasswordReset', { user })
-            return true
-          } catch (error) {
-            auth.setState('error', error as Error)
-            auth.setState('isLoading', false)
-            auth.emit('onError', error)
-            throw error
-          }
+        if (typeof emailOrData === 'string') {
+          email = emailOrData;
+          newPwd = newPassword!;
+        } else {
+          email = emailOrData.email;
+          newPwd = emailOrData.newPassword;
         }
+
+        try {
+          auth.setState('isLoading', true)
+
+          // Find user
+          const user = await config.userRepository.findByEmail(email)
+          if (!user) {
+            throw new Error('User not found')
+          }
+
+          // Hash new password
+          if (!config.hashPassword) {
+            throw new Error('hashPassword function not provided')
+          }
+
+          const newHash = await config.hashPassword(newPwd)
+          await config.userRepository.updatePassword(user.id, newHash)
+
+          auth.setState('error', null)
+          auth.setState('isLoading', false)
+          auth.emit('afterPasswordReset', { user })
+          return true
+        } catch (error) {
+          auth.setState('error', error as Error)
+          auth.setState('isLoading', false)
+          auth.emit('onError', error)
+          throw error
+        }
+      }
     }
   }
 }

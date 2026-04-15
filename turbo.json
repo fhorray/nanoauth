@@ -12,6 +12,13 @@
     "dev": {
       "persistent": true,
       "cache": false
+    },
+    "db:gen": {
+      "cache": false
+    },
+    "db:push": {
+      "dependsOn": ["^db:push"],
+          "cache": false
     }
   }
 }

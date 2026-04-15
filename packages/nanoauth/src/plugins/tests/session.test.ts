@@ -1,12 +1,15 @@
 import { describe, it, expect, beforeEach } from 'bun:test';
 import { createAuth } from '../../core';
 import { sessionPlugin } from '../session';
-import { AuthAdapter } from '../../types';
+import type { AuthAdapter } from '../../types';
 
 const mockAdapter: AuthAdapter = {
   storeUser: async (user: any) => user,
   getUser: async (id: string) => null,
   deleteUser: async (id: string) => true,
+  saveSession: async (sessionId: string, data: any) => { },
+  validateToken: async (token: string) => true,
+  deleteSession: async (sessionId: string) => { },
 };
 
 describe('Session Plugin', () => {
@@ -21,13 +24,12 @@ describe('Session Plugin', () => {
       const auth = createAuth(mockAdapter, {});
       const plugin = sessionPlugin({
         storage: 'memory',
-        tokenKey: 'accessToken',
+        storageKey: 'accessToken',
       });
 
       auth.use(plugin);
 
       // Simulate setting session data
-      // @ts-expect-error - protected method
       auth.setState('token', 'test-token-123');
 
       const token = await auth.getState('token');
@@ -39,13 +41,11 @@ describe('Session Plugin', () => {
       auth.use(
         sessionPlugin({
           storage: 'memory',
-          tokenKey: 'accessToken',
+          storageKey: 'accessToken',
         })
       );
 
-      // @ts-expect-error - protected method
       auth.setState('token', 'test-token-123');
-      // @ts-expect-error - protected method
       auth.clearSession();
 
       const token = await auth.getState('token');
@@ -56,19 +56,17 @@ describe('Session Plugin', () => {
       const auth = createAuth(mockAdapter, {});
       const config = {
         storage: 'memory' as const,
-        tokenKey: 'accessToken',
+        storageKey: 'accessToken',
         refreshTokenKey: 'refreshToken',
-        onRefreshToken: async (oldToken: string) => 'new-token-' + Date.now(),
+        refreshTokenFn: async (oldToken: string) => 'new-token-' + Date.now(),
       };
 
       auth.use(sessionPlugin(config));
 
-      // @ts-expect-error - protected method
       auth.setState('token', 'old-token');
 
       // Simulate token refresh
       const newToken = 'new-token-refreshed';
-      // @ts-expect-error - protected method
       auth.setState('token', newToken);
 
       const token = await auth.getState('token');
@@ -91,12 +89,11 @@ describe('Session Plugin', () => {
 
       const plugin = sessionPlugin({
         storage: customStorage,
-        tokenKey: 'token',
+        storageKey: 'token',
       });
 
       auth.use(plugin);
 
-      // @ts-expect-error - protected method
       auth.setState('token', 'custom-storage-token');
 
       const token = await auth.getState('token');
@@ -123,7 +120,6 @@ describe('Session Plugin', () => {
         // Hook signal
       });
 
-      // @ts-expect-error - protected method
       auth.emit('beforeLogin', {});
 
       await new Promise(resolve => setTimeout(resolve, 10));
@@ -138,7 +134,6 @@ describe('Session Plugin', () => {
         afterLoginCalled = true;
       });
 
-      // @ts-expect-error - protected method
       auth.emit('afterLogin', {});
 
       await new Promise(resolve => setTimeout(resolve, 10));
@@ -153,7 +148,6 @@ describe('Session Plugin', () => {
         afterLogoutCalled = true;
       });
 
-      // @ts-expect-error - protected method
       auth.emit('afterLogout', {});
 
       await new Promise(resolve => setTimeout(resolve, 10));
@@ -170,7 +164,7 @@ describe('Session Plugin', () => {
       auth.use(
         sessionPlugin({
           storage: 'memory',
-          onValidateToken: async (token: any) => {
+          validateToken: async (token: any) => {
             return token.exp > Math.floor(Date.now() / 1000);
           },
         })
@@ -186,8 +180,8 @@ describe('Session Plugin', () => {
 
       const plugin = sessionPlugin({
         storage: 'memory',
-        expirationTime: 3600,
-        onRefreshToken: async (oldToken: string) => {
+        tokenExpirationTime: 3600,
+        refreshTokenFn: async (oldToken: string) => {
           refreshCalled = true;
           return 'refreshed-' + Date.now();
         },

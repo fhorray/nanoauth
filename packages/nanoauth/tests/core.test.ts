@@ -1,11 +1,14 @@
 import { describe, it, expect, beforeEach } from 'bun:test';
 import { createAuth, AuthCore } from '../src/core';
-import { AuthState, AuthAdapter } from '../src/types';
+import type { AuthState, AuthAdapter, User } from '../src/types';
 
 const mockAdapter: AuthAdapter = {
-  storeUser: async (user) => user,
-  getUser: async (id) => null,
-  deleteUser: async (id) => true,
+  storeUser: async (user: User) => user,
+  getUser: async (id: string) => null,
+  deleteUser: async (id: string) => true,
+  saveSession: async (session: any) => session,
+  validateToken: async (token: string) => true,
+  deleteSession: async (sessionId: string) => { }
 };
 
 describe('AuthCore - Core functionality', () => {
@@ -31,7 +34,6 @@ describe('AuthCore - Core functionality', () => {
   it('should update state via setState', async () => {
     const mockUser = { id: '1', email: 'test@example.com' };
 
-    // @ts-expect-error - protected method
     auth.setState('user', mockUser);
 
     const user = await auth.getState('user');
@@ -48,7 +50,6 @@ describe('AuthCore - Core functionality', () => {
       notifiedValue = newValue;
     });
 
-    // @ts-expect-error - protected method
     auth.setState('user', mockUser);
 
     // Add small delay for observer callback
@@ -70,7 +71,6 @@ describe('AuthCore - Core functionality', () => {
       callback2Called = true;
     });
 
-    // @ts-expect-error - protected method
     auth.setState('user', { id: '1', email: 'test@example.com' });
 
     await new Promise(resolve => setTimeout(resolve, 10));
@@ -88,7 +88,6 @@ describe('AuthCore - Core functionality', () => {
       hookData = data;
     });
 
-    // @ts-expect-error - protected method
     auth.emit('login', { userId: '123' });
 
     await new Promise(resolve => setTimeout(resolve, 10));
@@ -109,7 +108,6 @@ describe('AuthCore - Core functionality', () => {
       hook2Called = true;
     });
 
-    // @ts-expect-error - protected method
     auth.emit('login', {});
 
     await new Promise(resolve => setTimeout(resolve, 10));
@@ -180,10 +178,8 @@ describe('AuthCore - Core functionality', () => {
     const auth1 = createAuth(mockAdapter, {});
     const auth2 = createAuth(mockAdapter, {});
 
-    // @ts-expect-error - protected method
-    auth1.setState('user', { id: '1', email: 'user1@example.com' });
-    // @ts-expect-error - protected method
-    auth2.setState('user', { id: '2', email: 'user2@example.com' });
+    (auth1 as any).setState('user', { id: '1', email: 'user1@example.com' });
+    (auth2 as any).setState('user', { id: '2', email: 'user2@example.com' });
 
     const user1 = await auth1.getState('user');
     const user2 = await auth2.getState('user');

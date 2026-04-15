@@ -6,6 +6,7 @@ import { nanoauth, emailPasswordPlugin, sessionPlugin, oauthPlugin } from 'nanoa
 import { hashSHA256, encodeHex, createHS256JWT, verifyHS256JWT } from 'nanoauth/utils';
 import type { User, AuthAdapter } from 'nanoauth';
 import { userRepository, sessionRepository } from '../db/client';
+import { magicLinkPlugin } from './magic-link';
 
 // JWT Secret
 const JWT_SECRET = new TextEncoder().encode("playground-secret-key-12345");
@@ -45,6 +46,14 @@ export const auth = nanoauth({
   adapter: authAdapter,
 
   plugins: [
+
+    magicLinkPlugin({
+      generateToken: () => { return "test" },
+      sendEmail: async (email: string, link: string) => {
+        console.log(`[MAGIC LINK] Sending email to ${email} with link: ${link}`);
+      }
+    }),
+
     // 1. Session Management
     sessionPlugin({
       storage: 'memory',
@@ -86,7 +95,7 @@ export const auth = nanoauth({
           authorizationUrl: '/auth/mock/authorize', // Local simulation route
           tokenUrl: '/auth/mock/token',
           userInfoUrl: '/auth/mock/user',
-          redirectUri: 'http://localhost:3001/api/auth/callback/mock',
+          redirectUri: 'http://localhost:3000/api/auth/callback/mock',
           scope: ['profile', 'email']
         }
       },
@@ -118,3 +127,4 @@ export const auth = nanoauth({
     cookieName: 'auth_token',
   }
 });
+
