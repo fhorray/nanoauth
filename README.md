@@ -227,35 +227,46 @@ Once you initialize `nanoauth`, the resulting `auth` instance provides the follo
 
 ---
 
-## ⚡ 4. React Native & Frontend: The Client SDK
+## ⚡ 4. React & Frontend: The Client SDK
 
-NanoAuth provides an ultra-lightweight, framework-agnostic Frontend Client powered by Nanostores. This handles reactivity, syncing state, and communicating with the generic web handler!
+NanoAuth provides an ultra-lightweight React integration. Instead of handling fragmented states, you use a single unified hook.
 
 ```typescript
-import { createAuthClient } from 'nanoauth/client';
+import { createAuthClient } from 'nanoauth/react';
 
-// 1. Initialize the client (usually in a separate file like lib/clientAuth.ts)
-export const authClient = createAuthClient({
-  baseURL: 'http://localhost:3000' // Your API URL
+// 1. Initialize the client
+export const auth = createAuthClient({
+  baseURL: 'http://localhost:3000'
 });
 
-// 2. State is strictly defined!
-// You can use these everywhere: React, Vue, Svelte, Vanilla JS.
-authClient.session.subscribe(session => {
-  if (session.user) {
-    console.log(`Welcome back, ${session.user.name}`);
-  }
-});
+// 2. Use the unified hook in your components!
+export function Navbar() {
+  const { user, isLoading, signOut } = auth.useSession();
 
-authClient.isLoading.subscribe(loading => {
-  if (loading) console.log('Processing authentication...');
-});
+  if (isLoading) return <span>Verifying identity...</span>;
 
-// 3. Simple, unified API to sign in and out
-await authClient.signIn('email', { email: 'user@example.com', password: '123' });
+  return (
+    <nav>
+      {user ? (
+        <>
+          <span>Welcome, {user.name}</span>
+          <button onClick={signOut}>Sign Out</button>
+        </>
+      ) : (
+        <a href="/signin">Sign In</a>
+      )}
+    </nav>
+  );
+}
 
-await authClient.signOut();
+// 3. Simple API for actions
+async function handleLogin() {
+  const { user } = await auth.signIn('email', { email, password });
+  console.log('Logged in as', user.name);
+}
 ```
+
+> **Framework Agnostic?** Yes! If you aren't using React, you can still use `nanoauth/client` which provides raw Nanostores (Atoms/Maps) to integrate with Vue, Svelte, or Vanilla JS.
 
 ---
 

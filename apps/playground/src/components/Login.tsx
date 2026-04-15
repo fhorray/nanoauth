@@ -1,29 +1,21 @@
-/** @jsxImportSource hono/jsx/dom */
-import { useState, useEffect } from 'hono/jsx';
+/** @jsxImportSource react */
+import { useState, useEffect } from 'react';
 import { authClient } from '../client';
 
 export const Login = () => {
-  // Bridge Nanostores to Component State
-  const [isLoading, setIsLoading] = useState(authClient.isLoading.get());
-  const [error, setError] = useState(authClient.error.get());
+  // ⚡ The Ultimate Unified Pattern!
+  const { isLoading, error, signIn } = authClient.useSession();
   const [status, setStatus] = useState<string | null>(null);
 
   useEffect(() => {
-    // Subscribe to client state
-    const unsubs = [
-      authClient.isLoading.subscribe((v) => setIsLoading(v)),
-      authClient.error.subscribe((v) => {
-        setError(v);
-        if (v) setStatus(v.toUpperCase());
-      }),
-    ];
+    if (error) setStatus(error.message.toUpperCase());
+  }, [error]);
 
+  useEffect(() => {
     // URL check for errors
     const params = new URLSearchParams(window.location.search);
     const err = params.get('error');
     if (err) setStatus(err.toUpperCase().replace(/_/g, ' '));
-
-    return () => unsubs.forEach((fn) => fn());
   }, []);
 
   const handleAuth = async (action: 'login' | 'signup') => {
@@ -51,60 +43,17 @@ export const Login = () => {
 
   return (
     <div
-      class="layout"
+      className="layout"
       style={{ justifyContent: 'center', alignItems: 'center' }}
     >
       <div
-        class="nano-module"
+        className="nano-module"
         style={{ width: '100%', maxWidth: '420px', textAlign: 'center' }}
       >
         <div style={{ marginBottom: '3rem' }}>
-          <div
-            style={{
-              display: 'inline-block',
-              border: '1px solid var(--accent)',
-              padding: '1rem',
-              marginBottom: '1.5rem',
-              background: 'var(--accent-soft)',
-            }}
-          >
-            <span
-              style={{
-                fontSize: '24px',
-                fontWeight: 900,
-                color: 'var(--accent)',
-              }}
-            >
-              NA
-            </span>
-          </div>
-          <h2
-            style={{
-              fontSize: '14px',
-              fontWeight: 900,
-              textTransform: 'uppercase',
-              letterSpacing: '4px',
-              color: 'var(--accent)',
-            }}
-          >
-            Authentication
-          </h2>
-          <p
-            style={{
-              fontSize: '9px',
-              color: 'var(--text-dim)',
-              marginTop: '0.75rem',
-              letterSpacing: '2px',
-            }}
-          >
-            Waiting for identity verification...
-          </p>
-        </div>
-
-        <div style={{ marginBottom: '3rem' }}>
           <a
             href="/api/auth/signin/mock"
-            class="btn btn-primary"
+            className="btn btn-primary"
             style={{ opacity: isLoading ? 0.5 : 1 }}
           >
             Sign in with Mock Account
@@ -112,7 +61,7 @@ export const Login = () => {
         </div>
 
         <div
-          class="flex items-center mb-4"
+          className="flex items-center mb-4"
           style={{ gap: '1rem', margin: '2.5rem 0' }}
         >
           <div
@@ -134,7 +83,7 @@ export const Login = () => {
 
         <form id="authForm" style={{ textAlign: 'left' }}>
           <div>
-            <span class="label">Email Address</span>
+            <span className="label">Email Address</span>
             <input
               type="email"
               name="email"
@@ -144,7 +93,7 @@ export const Login = () => {
             />
           </div>
           <div style={{ marginBottom: '2.5rem' }}>
-            <span class="label">Secure Passcode</span>
+            <span className="label">Secure Passcode</span>
             <input
               type="password"
               name="password"
@@ -154,19 +103,24 @@ export const Login = () => {
             />
           </div>
 
-          <div class="grid-2">
+          <div className="grid-2">
             <button
               type="button"
               onClick={() => handleAuth('login')}
-              class="btn btn-primary"
+              className="btn btn-primary"
               disabled={isLoading}
             >
               {isLoading ? 'Processing...' : 'Sign In'}
             </button>
             <a
               href="/signup"
-              class="btn"
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}
+              className="btn"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                textDecoration: 'none',
+              }}
             >
               Register
             </a>

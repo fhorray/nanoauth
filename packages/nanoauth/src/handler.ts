@@ -1,6 +1,6 @@
 import { serializeCookie, parseCookies } from './utils/cookie'
 import type { AuthCoreInstance, User, NanoAuthHandlerOptions } from './types'
-import { AuthenticationError, SecurityError, ValidationError } from './errors'
+import { AuthenticationError, NanoAuthError, SecurityError, ValidationError } from './errors'
 
 /**
  * Helper to append query parameters securely to a URL
@@ -71,7 +71,7 @@ export async function handleRequest<TUser extends User = User>(
         if (typeof methodToCall !== 'function') {
           throw new Error(`Strategy "${currentStrategy}" is not supported for ${action}.`);
         }
-        
+
         // Strategy methods should now return { user, token }
         const result = await methodToCall(body)
         user = result.user || result;
@@ -96,11 +96,20 @@ export async function handleRequest<TUser extends User = User>(
       return response
     } catch (error: any) {
       let status = 400;
-      if (error instanceof AuthenticationError) status = 401;
+      let code = 'INTERNAL_ERROR';
+
+      if (error instanceof NanoAuthError) {
+        status = error.status;
+        code = error.code || 'NANOAUTH_ERROR';
+      } else if (error instanceof AuthenticationError) status = 401; // Fallback
       else if (error instanceof ValidationError) status = 400;
       else if (error instanceof SecurityError) status = 403;
 
-      return new Response(JSON.stringify({ error: error.message }), {
+      return new Response(JSON.stringify({
+        error: error.message,
+        code,
+        status
+      }), {
         status,
         headers: { 'Content-Type': 'application/json' }
       })
@@ -125,19 +134,19 @@ export async function handleRequest<TUser extends User = User>(
 
     try {
       const { url: authUrl, state } = await auth.signin.provider(provider)
-      
+
       const response = Response.redirect(authUrl, 302)
-      
+
       if (state) {
-          response.headers.append('Set-Cookie', serializeCookie(`oauth_state_${provider}`, state, {
-              path: '/',
-              httpOnly: true,
-              secure: process.env.NODE_ENV === 'production',
-              sameSite: 'Lax',
-              maxAge: 60 * 10 
-          }))
+        response.headers.append('Set-Cookie', serializeCookie(`oauth_state_${provider}`, state, {
+          path: '/',
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'Lax',
+          maxAge: 60 * 10
+        }))
       }
-      
+
       return response
     } catch (error: any) {
       return Response.redirect(appendQueryParam(errorRedirect, 'error', error.message), 302)
@@ -162,10 +171,10 @@ export async function handleRequest<TUser extends User = User>(
       if (!auth.signin.providerCallback) {
         throw new Error('OAuth plugin not installed or misconfigured (missing providerCallback)')
       }
-      
+
       const cookies = parseCookies(request.headers.get('Cookie'))
       const savedState = cookies[`oauth_state_${provider}`]
-      
+
       const { user, token } = await auth.signin.providerCallback(provider, code, state!, savedState)
 
       const response = Response.redirect(successRedirect, 302)

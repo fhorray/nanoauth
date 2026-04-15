@@ -326,12 +326,12 @@ export function LoginForm() {
 
 <template>
   <div>
-    <div v-if="error" class="error">{{ error.message }}</div>
-    <div v-if="user" class="dashboard">
+    <div v-if="error" className="error">{{ error.message }}</div>
+    <div v-if="user" className="dashboard">
       <p>Bem-vindo, {{ user.name }}!</p>
       <button @click="logout">Logout</button>
     </div>
-    <div v-else class="login">
+    <div v-else className="login">
       <button @click="handleLogin" :disabled="isLoading">
         {{ isLoading ? 'Entrando...' : 'Entrar com Email' }}
       </button>
@@ -403,16 +403,16 @@ const logout = () => {
 </script>
 
 {#if error}
-  <div class="error">{error.message}</div>
+  <div className="error">{error.message}</div>
 {/if}
 
 {#if user}
-  <div class="dashboard">
+  <div className="dashboard">
     <p>Bem-vindo, {user.name}!</p>
     <button on:click={handleLogout}>Logout</button>
   </div>
 {:else}
-  <div class="login">
+  <div className="login">
     <button on:click={handleLogin} disabled={isLoading}>
       {isLoading ? 'Entrando...' : 'Entrar'}
     </button>

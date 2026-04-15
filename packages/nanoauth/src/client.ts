@@ -7,6 +7,7 @@
 
 import { atom, map } from 'nanostores';
 import type { User } from './types';
+import { NanoAuthError } from './errors';
 
 export interface AuthClientOptions {
     baseURL?: string;
@@ -24,12 +25,29 @@ export class NanoAuthClient {
     // Reactive Atoms
     public $session = map<AuthSession>({ user: null, token: null });
     public $isLoading = atom<boolean>(false);
-    public $error = atom<string | null>(null);
+    public $error = atom<NanoAuthError | null>(null);
 
     private baseURL: string;
 
     constructor(options: AuthClientOptions = {}) {
         this.baseURL = options.baseURL || '';
+    }
+
+    /**
+     * Internal helper to create textured errors from API responses
+     */
+    private async hydrateError(res: Response): Promise<NanoAuthError> {
+        try {
+            const data = await res.json();
+            return new NanoAuthError(data.error || 'Request failed', {
+                status: data.status || res.status,
+                code: data.code
+            });
+        } catch {
+            return new NanoAuthError(res.statusText || 'Unknown Error', {
+                status: res.status
+            });
+        }
     }
 
     /**
@@ -39,6 +57,8 @@ export class NanoAuthClient {
         this.$isLoading.set(true);
         try {
             const res = await fetch(`${this.baseURL}/api/auth/session`);
+            if (!res.ok) throw await this.hydrateError(res);
+
             const data = await res.json();
             if (data.user) {
                 this.$session.set({ user: data.user, token: data.token || null });
@@ -46,7 +66,7 @@ export class NanoAuthClient {
                 this.$session.set({ user: null, token: null });
             }
         } catch (e: any) {
-            this.$error.set(e.message);
+            this.$error.set(e instanceof NanoAuthError ? e : new NanoAuthError(e.message));
         } finally {
             this.$isLoading.set(false);
         }
@@ -64,15 +84,16 @@ export class NanoAuthClient {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data)
             });
+
+            if (!res.ok) throw await this.hydrateError(res);
+
             const result = await res.json();
-
-            if (result.error) throw new Error(result.error);
-
             this.$session.set({ user: result.user, token: result.token });
             return result;
         } catch (e: any) {
-            this.$error.set(e.message);
-            throw e;
+            const err = e instanceof NanoAuthError ? e : new NanoAuthError(e.message);
+            this.$error.set(err);
+            throw err;
         } finally {
             this.$isLoading.set(false);
         }
@@ -90,15 +111,16 @@ export class NanoAuthClient {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data)
             });
+
+            if (!res.ok) throw await this.hydrateError(res);
+
             const result = await res.json();
-
-            if (result.error) throw new Error(result.error);
-
             this.$session.set({ user: result.user, token: result.token });
             return result;
         } catch (e: any) {
-            this.$error.set(e.message);
-            throw e;
+            const err = e instanceof NanoAuthError ? e : new NanoAuthError(e.message);
+            this.$error.set(err);
+            throw err;
         } finally {
             this.$isLoading.set(false);
         }
@@ -110,10 +132,11 @@ export class NanoAuthClient {
     signOut = async () => {
         this.$isLoading.set(true);
         try {
-            await fetch(`${this.baseURL}/api/auth/signout/session`, { method: 'POST' });
+            const res = await fetch(`${this.baseURL}/api/auth/signout/session`, { method: 'POST' });
+            if (!res.ok) throw await this.hydrateError(res);
             this.$session.set({ user: null, token: null });
         } catch (e: any) {
-            this.$error.set(e.message);
+            this.$error.set(e instanceof NanoAuthError ? e : new NanoAuthError(e.message));
         } finally {
             this.$isLoading.set(false);
         }

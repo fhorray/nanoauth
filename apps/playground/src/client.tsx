@@ -1,16 +1,16 @@
-/** @jsxImportSource hono/jsx/dom */
-import { render } from 'hono/jsx/dom';
-import { createAuthClient } from 'nanoauth/client';
+/** @jsxImportSource react */
+import { hydrateRoot } from 'react-dom/client';
+import { createAuthClient } from 'nanoauth/react';
 import { Login } from './components/Login';
 import { Signup } from './components/Signup';
 import { Dashboard } from './components/Dashboard';
 
 /**
  * NanoAuth Playground - Client Hydration Engine ⚡
- * Powered by NanoAuth Client SDK & Nanostores
+ * Proudly provided by Antigravity.
  */
 
-// Initialize the reactive client
+// Initialize the official React-powered client!
 export const authClient = createAuthClient();
 
 function mountApp() {
@@ -19,7 +19,7 @@ function mountApp() {
 
   // Sync the initial server state to our nanostores client
   if (initialData.user) {
-    authClient.session.set({
+    authClient.$stores.session.set({
       user: initialData.user,
       token: initialData.token || null,
     });
@@ -28,16 +28,16 @@ function mountApp() {
   // 1. Check for Login Root
   const loginRoot = document.getElementById('root-login');
   if (loginRoot) {
-    console.log('[CLIENT] Mounting Login Component');
-    render(<Login />, loginRoot);
+    console.log('[CLIENT] Hydrating Login Component');
+    hydrateRoot(loginRoot, <Login />);
     return;
   }
 
   // Check for Signup Root
   const signupRoot = document.getElementById('root-signup');
   if (signupRoot) {
-    console.log('[CLIENT] Mounting Signup Component');
-    render(<Signup />, signupRoot);
+    console.log('[CLIENT] Hydrating Signup Component');
+    hydrateRoot(signupRoot, <Signup />);
     return;
   }
 
@@ -45,14 +45,14 @@ function mountApp() {
   const dashboardRoot = document.getElementById('root-dashboard');
   if (dashboardRoot) {
     if (initialData.user) {
-      console.log('[CLIENT] Mounting Dashboard Component');
-      render(
+      console.log('[CLIENT] Hydrating Dashboard Component');
+      hydrateRoot(
+        dashboardRoot,
         <Dashboard
           user={initialData.user}
           plans={initialData.plans || []}
           activePlan={initialData.activePlan}
-        />,
-        dashboardRoot,
+        />
       );
     } else {
       console.warn('[CLIENT] Dashboard root found but no user data available.');

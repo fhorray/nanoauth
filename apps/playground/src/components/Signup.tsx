@@ -1,22 +1,17 @@
-/** @jsxImportSource hono/jsx/dom */
-import { useState, useEffect } from 'hono/jsx';
+/** @jsxImportSource react */
+import { useState, useEffect } from 'react';
 import { authClient } from '../client';
 
 export const Signup = () => {
-  const [isLoading, setIsLoading] = useState(authClient.isLoading.get());
-  const [error, setError] = useState(authClient.error.get());
-  const [status, setStatus] = useState<string | null>('READY FOR INITIALIZATION');
+  // ⚡ The Ultimate Unified Pattern!
+  const { isLoading, error, signUp } = authClient.useSession();
+  const [status, setStatus] = useState<string | null>(
+    'READY FOR INITIALIZATION',
+  );
 
   useEffect(() => {
-    const unsubs = [
-      authClient.isLoading.subscribe((v) => setIsLoading(v)),
-      authClient.error.subscribe((v) => {
-        setError(v);
-        if (v) setStatus(v.toUpperCase());
-      }),
-    ];
-    return () => unsubs.forEach((fn) => fn());
-  }, []);
+    if (error) setStatus(error.message.toUpperCase());
+  }, [error]);
 
   const handleSignup = async (e: any) => {
     e.preventDefault();
@@ -24,7 +19,7 @@ export const Signup = () => {
     const data = Object.fromEntries(new FormData(form));
 
     setStatus('GENERATING CRYPTOGRAPHIC IDENTITY...');
-    
+
     try {
       await authClient.signUp('email', data);
       setStatus('VAULT CREATED. REDIRECTING...');
@@ -36,11 +31,11 @@ export const Signup = () => {
 
   return (
     <div
-      class="layout"
+      className="layout"
       style={{ justifyContent: 'center', alignItems: 'center' }}
     >
       <div
-        class="nano-module"
+        className="nano-module"
         style={{ width: '100%', maxWidth: '420px', textAlign: 'center' }}
       >
         <div style={{ marginBottom: '3rem' }}>
@@ -88,7 +83,7 @@ export const Signup = () => {
 
         <form onSubmit={handleSignup} style={{ textAlign: 'left' }}>
           <div>
-            <span class="label">Full Identity Name</span>
+            <span className="label">Full Identity Name</span>
             <input
               type="text"
               name="name"
@@ -98,7 +93,7 @@ export const Signup = () => {
             />
           </div>
           <div style={{ marginTop: '1.5rem' }}>
-            <span class="label">Email Address</span>
+            <span className="label">Email Address</span>
             <input
               type="email"
               name="email"
@@ -108,7 +103,7 @@ export const Signup = () => {
             />
           </div>
           <div style={{ margin: '1.5rem 0 2.5rem' }}>
-            <span class="label">Secure Passcode</span>
+            <span className="label">Secure Passcode</span>
             <input
               type="password"
               name="password"
@@ -120,17 +115,27 @@ export const Signup = () => {
 
           <button
             type="submit"
-            class="btn btn-primary"
+            className="btn btn-primary"
             style={{ width: '100%' }}
             disabled={isLoading}
           >
             {isLoading ? 'EXECUTING SIGNUP...' : 'COMPLETE REGISTRATION'}
           </button>
-          
+
           <div style={{ textAlign: 'center', marginTop: '1.5rem' }}>
-             <a href="/signin" style={{ fontSize: '10px', color: 'var(--text-dim)', textDecoration: 'none' }}>
-                ALREADY HAVE AN ACCOUNT? <span style={{ color: 'var(--accent)', fontWeight: 800 }}>SIGN IN</span>
-             </a>
+            <a
+              href="/signin"
+              style={{
+                fontSize: '10px',
+                color: 'var(--text-dim)',
+                textDecoration: 'none',
+              }}
+            >
+              ALREADY HAVE AN ACCOUNT?{' '}
+              <span style={{ color: 'var(--accent)', fontWeight: 800 }}>
+                SIGN IN
+              </span>
+            </a>
           </div>
         </form>
 

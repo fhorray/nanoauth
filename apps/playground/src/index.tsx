@@ -1,8 +1,8 @@
-/** @jsxImportSource hono/jsx */
+/** @jsxImportSource react */
 import { Hono } from 'hono';
 import { logger } from 'hono/logger';
 import { cors } from 'hono/cors';
-import { jsxRenderer } from 'hono/jsx-renderer';
+import { reactRenderer } from '@hono/react-renderer';
 import { auth } from './lib/auth';
 import { plans } from './lib/plans';
 
@@ -16,12 +16,10 @@ import { Layout } from './components/Layout';
 
 const app = new Hono();
 
-declare module 'hono' {
-  interface ContextRenderer {
-    (
-      content: string | Promise<string>,
-      props?: { title: string; data?: any },
-    ): Response | Promise<Response>;
+declare module '@hono/react-renderer' {
+  interface Props {
+    title: string;
+    data?: any;
   }
 }
 
@@ -31,7 +29,7 @@ app.use('*', cors());
 // ⚡ GLOBAL RENDERER MIDDLEWARE
 app.use(
   '*',
-  jsxRenderer(({ children, title, data }) => {
+  reactRenderer(({ children, title, data }) => {
     return (
       <Layout title={title} data={data}>
         {children}
@@ -95,7 +93,7 @@ app.post('/api/manage-billing', async (c) => {
 app.get('/', (c) => {
   return c.render(
     <div
-      class="layout"
+      className="layout"
       style={{
         justifyContent: 'center',
         alignItems: 'center',
@@ -103,8 +101,8 @@ app.get('/', (c) => {
         padding: '2rem',
       }}
     >
-      <div class="nano-module" style={{ maxWidth: '600px' }}>
-        <span class="label">Core Framework</span>
+      <div className="nano-module" style={{ maxWidth: '600px' }}>
+        <span className="label">Core Framework</span>
         <h1
           style={{
             fontSize: '64px',
@@ -129,11 +127,11 @@ app.get('/', (c) => {
           Sophisticated authentication infrastructure built for the modern web
           standard. Declarative, atomic, and secure by design.
         </p>
-        <div class="grid-2">
-          <a href="/signin" class="btn btn-primary">
+        <div className="grid-2">
+          <a href="/signin" className="btn btn-primary">
             Enter Playground
           </a>
-          <a href="https://github.com" class="btn">
+          <a href="https://github.com" className="btn">
             Documentation
           </a>
         </div>
@@ -194,11 +192,11 @@ app.get('/auth/mock/authorize', (c) => {
 
   return c.render(
     <div
-      class="layout"
+      className="layout"
       style={{ justifyContent: 'center', alignItems: 'center' }}
     >
       <div
-        class="nano-module"
+        className="nano-module"
         style={{ maxWidth: '400px', textAlign: 'center' }}
       >
         <h2
@@ -221,7 +219,7 @@ app.get('/auth/mock/authorize', (c) => {
         </p>
         <a
           href={`${redirectUri}?code=mock_code_123&state=${state}`}
-          class="btn btn-primary"
+          className="btn btn-primary"
         >
           Confirm Authorization
         </a>

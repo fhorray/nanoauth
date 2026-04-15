@@ -45,6 +45,11 @@
       "types": "./src/utils/index.ts",
       "import": "./src/utils/index.ts",
       "default": "./src/utils/index.ts"
+    },
+    "./react": {
+      "types": "./src/react.ts",
+      "import": "./src/react.ts",
+      "default": "./src/react.ts"
     }
   },
   "devDependencies": {
@@ -52,9 +57,11 @@
     "typescript": "^5.0.0"
   },
   "peerDependencies": {
-    "hono": ">=4.0.0"
+    "hono": ">=4.0.0",
+    "react": ">=18.0.0"
   },
   "dependencies": {
+    "@nanostores/react": "^0.8.4",
     "@oslojs/binary": "latest",
     "@oslojs/crypto": "latest",
     "@oslojs/encoding": "latest",
