@@ -1,6 +1,6 @@
 import { describe, it, expect, mock } from 'bun:test'
 import { createPlugin, defineAdapter, definePlugin } from '../helpers'
-import { User, AuthCoreInstance } from '../../types'
+import type { User, AuthCoreInstance } from '../../types'
 
 describe('Developer Experience Helpers', () => {
   describe('defineAdapter', () => {
@@ -38,10 +38,10 @@ describe('Developer Experience Helpers', () => {
 
   describe('definePlugin', () => {
     it('should return the factory function unmodified', () => {
-      const pluginFactory = definePlugin<{ magicWord: string }>((options) => ({
+      const pluginFactory = definePlugin((options: { magicWord: string }) => ({
         name: 'magic',
         setup(auth: AuthCoreInstance) {
-          auth.magicWord = options.magicWord
+          return { getMagicWord: () => options.magicWord }
         }
       }))
 
@@ -50,11 +50,10 @@ describe('Developer Experience Helpers', () => {
       expect(plugin.name).toBe('magic')
       expect(typeof plugin.setup).toBe('function')
 
-      // Mock auth instance to test setup
+      // Validate return value of setup
       const mockAuth = {} as AuthCoreInstance
-      plugin.setup(mockAuth)
-
-      expect((mockAuth as any).magicWord).toBe('abracadabra')
+      const result = plugin.setup!(mockAuth) as any
+      expect(result.getMagicWord()).toBe('abracadabra')
     })
   })
 
@@ -70,7 +69,7 @@ describe('Developer Experience Helpers', () => {
       expect(typeof simplePlugin.setup).toBe('function')
 
       const mockAuth = {} as AuthCoreInstance
-      simplePlugin.setup(mockAuth)
+      simplePlugin.setup!(mockAuth)
 
       expect(setupMock).toHaveBeenCalledWith(mockAuth)
     })

@@ -31,7 +31,7 @@ describe('Email-Password Plugin', () => {
 
   beforeEach(() => {
     mockUsers.clear();
-    auth = createAuth(mockAdapter, {});
+    auth = createAuth(mockAdapter, { secret: 'test-secret' });
 
     userRepository = {
       findByEmail: async (email: string) => {
@@ -85,9 +85,9 @@ describe('Email-Password Plugin', () => {
   it('should initialize email-password plugin', () => {
     const plugin = emailPasswordPlugin({
       userRepository,
-      validateEmail: (email) => email.includes('@'),
-      hashPassword: async (password) => 'hashed-' + password,
-      comparePassword: async (password, hash) => hash === 'hashed-' + password,
+      validateEmail: (email: string) => email.includes('@'),
+      hashPassword: async (password: string) => 'hashed-' + password,
+      comparePassword: async (password: string, hash: string) => hash === 'hashed-' + password,
     });
 
     expect(plugin).toBeDefined();
@@ -98,21 +98,22 @@ describe('Email-Password Plugin', () => {
     auth.use(
       emailPasswordPlugin({
         userRepository,
-        validateEmail: (email) => email.includes('@'),
-        hashPassword: async (password) => 'hashed-' + password,
-        comparePassword: async (password, hash) => hash === 'hashed-' + password,
+        validateEmail: (email: string) => email.includes('@'),
+        hashPassword: async (password: string) => 'hashed-' + password,
+        comparePassword: async (password: string, hash: string) => hash === 'hashed-' + password,
       })
     );
 
-    const result = await auth.signup({
+    const { user, token } = await auth.signup.email({
       email: 'newuser@example.com',
       password: 'password123',
       name: 'New User',
     });
 
-    expect(result).toBeDefined();
-    expect(result.email).toBe('newuser@example.com');
-    expect(result.name).toBe('New User');
+    expect(user).toBeDefined();
+    expect(token).toBeDefined();
+    expect(user.email).toBe('newuser@example.com');
+    expect(user.name).toBe('New User');
 
     // Verify user was stored
     const storedUser = await userRepository.findByEmail('newuser@example.com');
@@ -124,14 +125,14 @@ describe('Email-Password Plugin', () => {
     auth.use(
       emailPasswordPlugin({
         userRepository,
-        validateEmail: (email) => email.includes('@'),
-        hashPassword: async (password) => 'hashed-' + password,
-        comparePassword: async (password, hash) => hash === 'hashed-' + password,
+        validateEmail: (email: string) => email.includes('@'),
+        hashPassword: async (password: string) => 'hashed-' + password,
+        comparePassword: async (password: string, hash: string) => hash === 'hashed-' + password,
       })
     );
 
     try {
-      await auth.signup({
+      await auth.signup.email({
         email: 'invalid-email',
         password: 'password123',
         name: 'Invalid',
@@ -149,14 +150,14 @@ describe('Email-Password Plugin', () => {
     auth.use(
       emailPasswordPlugin({
         userRepository,
-        validateEmail: (email) => email.includes('@'),
-        hashPassword: async (password) => 'hashed-' + password,
-        comparePassword: async (password, hash) => hash === 'hashed-' + password,
+        validateEmail: (email: string) => email.includes('@'),
+        hashPassword: async (password: string) => 'hashed-' + password,
+        comparePassword: async (password: string, hash: string) => hash === 'hashed-' + password,
       })
     );
 
     try {
-      await auth.signup({
+      await auth.signup.email({
         email: 'existing@example.com',
         password: 'password123',
         name: 'Duplicate',
@@ -174,20 +175,21 @@ describe('Email-Password Plugin', () => {
     auth.use(
       emailPasswordPlugin({
         userRepository,
-        validateEmail: (email) => email.includes('@'),
-        hashPassword: async (password) => 'hashed-' + password,
-        comparePassword: async (password, hash) => hash === 'hashed-' + password,
+        validateEmail: (email: string) => email.includes('@'),
+        hashPassword: async (password: string) => 'hashed-' + password,
+        comparePassword: async (password: string, hash: string) => hash === 'hashed-' + password,
       })
     );
 
-    const result = await auth.login({
+    const { user, token } = await auth.signin.email({
       email: 'user@example.com',
       password: 'password123',
     });
 
-    expect(result).toBeDefined();
-    expect(result.email).toBe('user@example.com');
-    expect(result.name).toBe('Test User');
+    expect(user).toBeDefined();
+    expect(token).toBeDefined();
+    expect(user.email).toBe('user@example.com');
+    expect(user.name).toBe('Test User');
   });
 
   it('should reject login with wrong password', async () => {
@@ -197,14 +199,14 @@ describe('Email-Password Plugin', () => {
     auth.use(
       emailPasswordPlugin({
         userRepository,
-        validateEmail: (email) => email.includes('@'),
-        hashPassword: async (password) => 'hashed-' + password,
-        comparePassword: async (password, hash) => hash === 'hashed-' + password,
+        validateEmail: (email: string) => email.includes('@'),
+        hashPassword: async (password: string) => 'hashed-' + password,
+        comparePassword: async (password: string, hash: string) => hash === 'hashed-' + password,
       })
     );
 
     try {
-      await auth.login({
+      await auth.signin.email({
         email: 'user@example.com',
         password: 'wrong-password',
       });
@@ -218,14 +220,14 @@ describe('Email-Password Plugin', () => {
     auth.use(
       emailPasswordPlugin({
         userRepository,
-        validateEmail: (email) => email.includes('@'),
-        hashPassword: async (password) => 'hashed-' + password,
-        comparePassword: async (password, hash) => hash === 'hashed-' + password,
+        validateEmail: (email: string) => email.includes('@'),
+        hashPassword: async (password: string) => 'hashed-' + password,
+        comparePassword: async (password: string, hash: string) => hash === 'hashed-' + password,
       })
     );
 
     try {
-      await auth.login({
+      await auth.signin.email({
         email: 'nonexistent@example.com',
         password: 'password123',
       });
@@ -242,9 +244,9 @@ describe('Email-Password Plugin', () => {
     auth.use(
       emailPasswordPlugin({
         userRepository,
-        validateEmail: (email) => email.includes('@'),
-        hashPassword: async (password) => 'hashed-' + password,
-        comparePassword: async (password, hash) => hash === 'hashed-' + password,
+        validateEmail: (email: string) => email.includes('@'),
+        hashPassword: async (password: string) => 'hashed-' + password,
+        comparePassword: async (password: string, hash: string) => hash === 'hashed-' + password,
       })
     );
 
@@ -257,12 +259,12 @@ describe('Email-Password Plugin', () => {
     expect(result).toBe(true);
 
     // Verify new password works
-    const loginResult = await auth.login({
+    const { user } = await auth.signin.email({
       email: 'user@example.com',
       password: 'newpassword',
     });
 
-    expect(loginResult).toBeDefined();
+    expect(user).toBeDefined();
   });
 
   it('should reject password change with wrong old password', async () => {
@@ -272,9 +274,9 @@ describe('Email-Password Plugin', () => {
     auth.use(
       emailPasswordPlugin({
         userRepository,
-        validateEmail: (email) => email.includes('@'),
-        hashPassword: async (password) => 'hashed-' + password,
-        comparePassword: async (password, hash) => hash === 'hashed-' + password,
+        validateEmail: (email: string) => email.includes('@'),
+        hashPassword: async (password: string) => 'hashed-' + password,
+        comparePassword: async (password: string, hash: string) => hash === 'hashed-' + password,
       })
     );
 
@@ -297,9 +299,9 @@ describe('Email-Password Plugin', () => {
     auth.use(
       emailPasswordPlugin({
         userRepository,
-        validateEmail: (email) => email.includes('@'),
-        hashPassword: async (password) => 'hashed-' + password,
-        comparePassword: async (password, hash) => hash === 'hashed-' + password,
+        validateEmail: (email: string) => email.includes('@'),
+        hashPassword: async (password: string) => 'hashed-' + password,
+        comparePassword: async (password: string, hash: string) => hash === 'hashed-' + password,
       })
     );
 
@@ -311,27 +313,27 @@ describe('Email-Password Plugin', () => {
     expect(result).toBe(true);
 
     // Verify new password works
-    const loginResult = await auth.login({
+    const { user } = await auth.signin.email({
       email: 'user@example.com',
       password: 'resetpassword',
     });
 
-    expect(loginResult).toBeDefined();
+    expect(user).toBeDefined();
   });
 
   it('should support custom password validation', async () => {
     await auth.use(
       emailPasswordPlugin({
         userRepository,
-        validateEmail: (email) => email.includes('@'),
-        validatePassword: (password) => password.length >= 8,
-        hashPassword: async (password) => 'hashed-' + password,
-        comparePassword: async (password, hash) => hash === 'hashed-' + password,
+        validateEmail: (email: string) => email.includes('@'),
+        validatePassword: (password: string) => password.length >= 8,
+        hashPassword: async (password: string) => 'hashed-' + password,
+        comparePassword: async (password: string, hash: string) => hash === 'hashed-' + password,
       })
     );
 
     try {
-      await auth.signup({
+      await auth.signup.email({
         email: 'user@example.com',
         password: 'short', // Only 5 characters
         name: 'Test',
@@ -345,28 +347,25 @@ describe('Email-Password Plugin', () => {
   it('should emit hooks on signup', async () => {
     let signupHookCalled = false;
 
-    auth.on('signup', () => {
+    auth.on('afterSignup', () => {
       signupHookCalled = true;
     });
 
     auth.use(
       emailPasswordPlugin({
         userRepository,
-        validateEmail: (email) => email.includes('@'),
-        hashPassword: async (password) => 'hashed-' + password,
-        comparePassword: async (password, hash) => hash === 'hashed-' + password,
+        validateEmail: (email: string) => email.includes('@'),
+        hashPassword: async (password: string) => 'hashed-' + password,
+        comparePassword: async (password: string, hash: string) => hash === 'hashed-' + password,
       })
     );
 
-    await auth.signup({
+    await auth.signup.email({
       email: 'user@example.com',
       password: 'password123',
       name: 'Test User',
     });
 
-    auth.emit('signup', {});
-
-    await new Promise(resolve => setTimeout(resolve, 10));
-    expect(signupHookCalled || true).toBe(true);
+    expect(signupHookCalled).toBe(true);
   });
 });

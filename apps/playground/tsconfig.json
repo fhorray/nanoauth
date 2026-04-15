@@ -4,7 +4,8 @@
     "module": "ESNext",
     "lib": [
       "ES2020",
-      "DOM"
+      "DOM",
+      "DOM.Iterable"
     ],
     "outDir": "./dist",
     "rootDir": "./src",
@@ -15,7 +16,9 @@
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "allowSyntheticDefaultImports": true,
-    "types": ["bun"]
+    "jsx": "react-jsx",
+    "jsxImportSource": "hono/jsx",
+    "types": ["bun", "hono"]
   },
   "include": ["src"],
   "exclude": ["node_modules", "dist"]

@@ -29,33 +29,33 @@ describe('OAuth Plugin', () => {
   beforeEach(() => {
     mockUsers.clear();
     oauthStates = new Map();
-    auth = createAuth(mockAdapter, {});
+    auth = createAuth(mockAdapter, { secret: 'test-secret' });
+  });
+
+  const createMockArcticProvider = (name: string) => ({
+    createAuthorizationURL: async (state: string, scopes: string[]) => {
+      oauthStates.set(state, { provider: name, timestamp: Date.now() });
+      return new URL(`https://${name}.example.com/authorize?state=${state}`);
+    },
+    validateAuthorizationCode: async (code: string) => {
+      return {
+        accessToken: () => `mock-access-token-${code}`
+      };
+    }
   });
 
   it('should initialize oauth plugin', () => {
     const plugin = oauthPlugin({
       providers: {
-        google: {
-          name: 'google',
-          clientId: 'google-client-id',
-          clientSecret: 'google-client-secret',
-          redirectUri: 'http://localhost:3000/auth/callback/google',
-          authorizationUrl: 'https://google.com/auth',
-          tokenUrl: 'https://google.com/token',
-          userInfoUrl: 'https://google.com/userinfo',
-          scope: ['openid', 'email'],
-        },
+        google: createMockArcticProvider('google'),
       },
       userRepository: {
         findByOAuthId: async (provider: string, oauthId: string) => null,
+        findByEmail: async (email: string) => null,
         create: async (user: any) => user,
       },
-      generateAuthorizationUrl: async (provider: string, config: any) => {
-        const state = 'state-' + Date.now();
-        oauthStates.set(state, { provider, timestamp: Date.now() });
-        return `https://${provider}.example.com/authorize?client_id=${config.clientId}&state=${state}`;
-      },
-      mapOAuthProfile: async (provider: string, profile: any) => ({
+      getProfile: async (provider, token) => ({ id: '123', email: 'test@example.com' }),
+      mapOAuthProfile: (provider: string, profile: any) => ({
         id: profile.sub || profile.id,
         email: profile.email,
         name: profile.name,
@@ -70,21 +70,14 @@ describe('OAuth Plugin', () => {
     await auth.use(
       oauthPlugin({
         providers: {
-          google: {
-            name: 'google',
-            clientId: 'google-client-id',
-            clientSecret: 'google-client-secret',
-            redirectUri: 'http://localhost:3000/auth/callback/google',
-            authorizationUrl: 'https://google.com/auth',
-            tokenUrl: 'https://google.com/token',
-            userInfoUrl: 'https://google.com/userinfo',
-            scope: ['openid', 'email'],
-          },
+          google: createMockArcticProvider('google'),
         },
         userRepository: {
           findByOAuthId: async (provider: string, oauthId: string) => null,
+          findByEmail: async (email: string) => null,
           create: async (user: any) => user,
         },
+        getProfile: async (provider, token) => ({ id: '123', email: 'test@example.com' }),
         mapOAuthProfile: (provider: string, profile: any) => ({
           id: profile.sub || profile.id,
           email: profile.email,
@@ -93,10 +86,10 @@ describe('OAuth Plugin', () => {
       })
     );
 
-    const url = await auth.getOAuthAuthorizationUrl('google');
+    const { url } = await auth.signin.provider('google');
 
     expect(url).toBeDefined();
-    expect(url).toContain('auth');
+    expect(url).toContain('authorize');
     expect(url).toContain('state=');
   });
 
@@ -104,16 +97,7 @@ describe('OAuth Plugin', () => {
     await auth.use(
       oauthPlugin({
         providers: {
-          github: {
-            name: 'github',
-            clientId: 'github-client-id',
-            clientSecret: 'github-client-secret',
-            redirectUri: 'http://localhost:3000/auth/callback/github',
-            authorizationUrl: 'https://github.com/auth',
-            tokenUrl: 'https://github.com/token',
-            userInfoUrl: 'https://github.com/userinfo',
-            scope: ['user:email'],
-          },
+          github: createMockArcticProvider('github'),
         },
         mapOAuthProfile: (provider: string, profile: any) => ({
           id: profile.sub || profile.id,
@@ -121,64 +105,38 @@ describe('OAuth Plugin', () => {
           name: profile.name,
         }),
         userRepository: {
-          findByOAuthId: async () => null,
-          create: async (user: any) => ({ ...user, email: user.email || 'user@github.com' }),
+          findByOAuthId: async (provider: string, oauthId: string) => null,
+          findByEmail: async (email: string) => null,
+          create: async (user: any) => {
+            mockUsers.set(user.id, user);
+            return user;
+          },
         },
-        exchangeCodeForToken: async (provider: string, code: string, config: any) => {
-          return {
-            access_token: 'access-token-' + code,
-            token_type: 'Bearer',
-          };
-        },
-        getProfile: async (provider: string, token: any) => {
-          if (provider === 'github') {
-            return {
-              id: 'github-123',
-              email: 'user@github.com',
-              name: 'GitHub User',
-            };
-          }
-          throw new Error('Provider not supported');
-        },
+        getProfile: async (provider, token) => ({ id: '123', email: 'github@example.com', name: 'Github User' }),
       })
     );
 
-    // First get authorization URL to create state
-    const url = await auth.getOAuthAuthorizationUrl('github');
-    const stateMatch = url.match(/state=([^&]+)/);
-    const state = stateMatch ? stateMatch[1] : 'state-123';
+    const { url, state } = await auth.signin.provider('github');
+    const { user, token } = await auth.signin.providerCallback('github', 'auth-code-123', state, state);
 
-    // Handle callback
-    const result = await auth.handleOAuthCallback('github', 'auth-code-123', state);
-
-    expect(result).toBeDefined();
-    expect(result.email).toBe('user@github.com');
+    expect(user).toBeDefined();
+    expect(token).toBeDefined();
+    expect(user.email).toBe('github@example.com');
+    expect(user.name).toBe('Github User');
   });
 
   it('should validate oauth state to prevent CSRF', async () => {
     auth.use(
       oauthPlugin({
         providers: {
-          google: {
-            name: 'google',
-            clientId: 'google-client-id',
-            clientSecret: 'google-client-secret',
-            redirectUri: 'http://localhost:3000/auth/callback/google',
-            authorizationUrl: 'https://google.com/auth',
-            tokenUrl: 'https://google.com/token',
-            userInfoUrl: 'https://google.com/userinfo',
-            scope: ['openid', 'email'],
-          },
+          google: createMockArcticProvider('google'),
         },
         userRepository: {
           findByOAuthId: async (provider: string, oauthId: string) => null,
+          findByEmail: async (email: string) => null,
           create: async (user: any) => user,
         },
-        generateAuthorizationUrl: async (provider: any, config: any) => {
-          const state = 'state-' + Date.now();
-          oauthStates.set(state, { provider, timestamp: Date.now() });
-          return `https://${provider}.example.com/authorize?state=${state}`;
-        },
+        getProfile: async () => ({ id: '123', email: 'test@example.com' }),
         mapOAuthProfile: async (provider: any, profile: any) => ({
           id: profile.id,
           email: profile.email,
@@ -188,11 +146,10 @@ describe('OAuth Plugin', () => {
     );
 
     try {
-
-      await auth.handleOAuthCallback('google', 'code-123', 'invalid-state');
+      await auth.signin.providerCallback('google', 'code-123', 'invalid-state', 'saved-state');
       expect.unreachable();
     } catch (error: any) {
-      expect(error.message).toContain('State');
+      expect(error.message).toContain('State mismatch');
     }
   });
 
@@ -200,36 +157,15 @@ describe('OAuth Plugin', () => {
     auth.use(
       oauthPlugin({
         providers: {
-          google: {
-            name: 'google',
-            clientId: 'google-client-id',
-            clientSecret: 'google-client-secret',
-            redirectUri: 'http://localhost:3000/auth/callback/google',
-            authorizationUrl: 'https://google.com/auth',
-            tokenUrl: 'https://google.com/token',
-            userInfoUrl: 'https://google.com/userinfo',
-            scope: ['openid', 'email'],
-          },
-          github: {
-            name: 'github',
-            clientId: 'github-client-id',
-            clientSecret: 'github-client-secret',
-            redirectUri: 'http://localhost:3000/auth/callback/github',
-            authorizationUrl: 'https://github.com/auth',
-            tokenUrl: 'https://github.com/token',
-            userInfoUrl: 'https://github.com/userinfo',
-            scope: ['user:email'],
-          },
+          google: createMockArcticProvider('google'),
+          github: createMockArcticProvider('github'),
         },
         userRepository: {
           findByOAuthId: async (provider: string, oauthId: string) => null,
+          findByEmail: async (email: string) => null,
           create: async (user: any) => user,
         },
-        generateAuthorizationUrl: async (provider: any, config: any) => {
-          const state = 'state-' + Date.now();
-          oauthStates.set(state, { provider, timestamp: Date.now() });
-          return `https://${provider}.example.com/authorize?client_id=${config.clientId}&state=${state}`;
-        },
+        getProfile: async () => ({ id: '123', email: 'test@example.com' }),
         mapOAuthProfile: async (provider: any, profile: any) => ({
           id: profile.id,
           email: profile.email,
@@ -238,74 +174,26 @@ describe('OAuth Plugin', () => {
       })
     );
 
-    const googleUrl = await auth.getOAuthAuthorizationUrl('google');
-    const githubUrl = await auth.getOAuthAuthorizationUrl('github');
+    const { url: googleUrl } = await auth.signin.provider('google');
+    const { url: githubUrl } = await auth.signin.provider('github');
 
     expect(googleUrl).toContain('google');
     expect(githubUrl).toContain('github');
     expect(googleUrl).not.toBe(githubUrl);
   });
 
-  it('should handle oauth profile mapping', async () => {
-    auth.use(
-      oauthPlugin({
-        providers: {
-          custom: {
-            name: 'custom',
-            clientId: 'custom-client-id',
-            clientSecret: 'custom-client-secret',
-            redirectUri: 'http://localhost:3000/auth/callback/custom',
-            authorizationUrl: 'https://custom.example.com/auth',
-            tokenUrl: 'https://custom.example.com/token',
-            userInfoUrl: 'https://custom.example.com/userinfo',
-            scope: ['email'],
-          },
-        },
-        userRepository: {
-          findByOAuthId: async (provider: string, oauthId: string) => null,
-          create: async (user: any) => user,
-        },
-        generateAuthorizationUrl: async (provider: any, config: any) => {
-          const state = 'state-mapped-' + Date.now();
-          oauthStates.set(state, { provider, timestamp: Date.now() });
-          return `https://custom.example.com/authorize?state=${state}`;
-        },
-        mapOAuthProfile: async (provider: any, profile: any) => {
-          // Custom mapping logic
-          return {
-            id: 'custom-' + profile.user_id,
-            email: profile.user_email,
-            name: profile.user_name || 'Custom User',
-          };
-        },
-      })
-    );
-
-    expect(auth).toBeDefined();
-  });
-
   it('should handle oauth errors gracefully', async () => {
     auth.use(
       oauthPlugin({
         providers: {
-          failing: {
-            name: 'failing',
-            clientId: 'failing-client-id',
-            clientSecret: 'failing-client-secret',
-            redirectUri: 'http://localhost:3000/auth/callback/failing',
-            authorizationUrl: 'https://failing.example.com/auth',
-            tokenUrl: 'https://failing.example.com/token',
-            userInfoUrl: 'https://failing.example.com/userinfo',
-            scope: ['email'],
-          },
+          failing: createMockArcticProvider('failing'),
         },
         userRepository: {
           findByOAuthId: async (provider: string, oauthId: string) => null,
+          findByEmail: async (email: string) => null,
           create: async (user: any) => user,
         },
-        generateAuthorizationUrl: async (provider: any, config: any) => {
-          throw new Error('OAuth service unavailable');
-        },
+        getProfile: async () => ({ id: '123', email: 'test@example.com' }),
         mapOAuthProfile: async (provider: any, profile: any) => ({
           id: profile.id,
           email: profile.email,
@@ -315,133 +203,31 @@ describe('OAuth Plugin', () => {
     );
 
     try {
-      await auth.getOAuthAuthorizationUrl('nonexistent');
+      await auth.signin.provider('nonexistent');
       expect.unreachable();
     } catch (error: any) {
       expect(error.message).toContain('not found');
     }
   });
 
-  it('should support oauth token exchange', async () => {
-    auth.use(
-      oauthPlugin({
-        providers: {
-          tokenexchange: {
-            name: 'tokenexchange',
-            clientId: 'tokenexchange-client-id',
-            clientSecret: 'tokenexchange-client-secret',
-            redirectUri: 'http://localhost:3000/auth/callback/tokenexchange',
-            authorizationUrl: 'https://tokenexchange.example.com/auth',
-            tokenUrl: 'https://tokenexchange.example.com/token',
-            userInfoUrl: 'https://tokenexchange.example.com/userinfo',
-            scope: ['email'],
-          },
-        },
-        userRepository: {
-          findByOAuthId: async (provider: string, oauthId: string) => null,
-          create: async (user: any) => user,
-        },
-        generateAuthorizationUrl: async (provider: any, config: any) => {
-          const state = 'state-token-' + Date.now();
-          oauthStates.set(state, { provider, timestamp: Date.now() });
-          return `https://tokenexchange.example.com/authorize?state=${state}`;
-        },
-        mapOAuthProfile: async (provider: any, profile: any) => ({
-          id: profile.id,
-          email: profile.email,
-          name: profile.name,
-        }),
-        exchangeCodeForToken: async (provider: any, code: any, config: any) => {
-          return {
-            access_token: 'exchanged-token-' + code,
-            token_type: 'Bearer',
-            expires_in: 3600,
-          };
-        },
-      })
-    );
-
-    expect(auth).toBeDefined();
-  });
-
-  it('should support profile caching strategy', async () => {
-    const profileCache = new Map<string, any>();
-
-    auth.use(
-      oauthPlugin({
-        providers: {
-          cached: {
-            name: 'cached',
-            clientId: 'cached-client-id',
-            clientSecret: 'cached-client-secret',
-            redirectUri: 'http://localhost:3000/auth/callback/cached',
-            authorizationUrl: 'https://cached.example.com/auth',
-            tokenUrl: 'https://cached.example.com/token',
-            userInfoUrl: 'https://cached.example.com/userinfo',
-            scope: ['email'],
-          },
-        },
-        userRepository: {
-          findByOAuthId: async (provider: string, oauthId: string) => null,
-          create: async (user: any) => user,
-        },
-        generateAuthorizationUrl: async (provider: any, config: any) => {
-          const state = 'state-' + Date.now();
-          oauthStates.set(state, { provider, timestamp: Date.now() });
-          return `https://cached.example.com/authorize?state=${state}`;
-        },
-        mapOAuthProfile: async (provider: any, profile: any) => {
-          // Check cache first
-          const cacheKey = provider + ':' + profile.id;
-          if (profileCache.has(cacheKey)) {
-            return profileCache.get(cacheKey);
-          }
-
-          const mapped = {
-            id: profile.id,
-            email: profile.email,
-            name: profile.name,
-          };
-
-          profileCache.set(cacheKey, mapped);
-          return mapped;
-        },
-      })
-    );
-
-    expect(auth).toBeDefined();
-  });
-
   it('should emit oauth hooks', async () => {
     let beforeOAuthCalled = false;
 
-    auth.on('beforeOAuth', () => {
+    auth.on('beforeOAuthCallback', () => {
       beforeOAuthCalled = true;
     });
 
     auth.use(
       oauthPlugin({
         providers: {
-          hooked: {
-            name: 'hooked',
-            clientId: 'hooked-client-id',
-            clientSecret: 'hooked-client-secret',
-            redirectUri: 'http://localhost:3000/auth/callback/hooked',
-            authorizationUrl: 'https://hooked.example.com/auth',
-            tokenUrl: 'https://hooked.example.com/token',
-            userInfoUrl: 'https://hooked.example.com/userinfo',
-            scope: ['email'],
-          },
+          hooked: createMockArcticProvider('hooked'),
         },
         userRepository: {
           findByOAuthId: async (provider: string, oauthId: string) => null,
+          findByEmail: async (email: string) => null,
           create: async (user: any) => user,
         },
-        generateAuthorizationUrl: async (provider, config) => {
-          const state = 'state-' + Date.now();
-          oauthStates.set(state, { provider, timestamp: Date.now() });
-          return `https://hooked.example.com/authorize?state=${state}`;
-        },
+        getProfile: async () => ({ id: '123', email: 'test@example.com' }),
         mapOAuthProfile: async (provider: any, profile: any) => ({
           id: profile.id,
           email: profile.email,
@@ -450,9 +236,46 @@ describe('OAuth Plugin', () => {
       })
     );
 
-    auth.emit('beforeOAuth', { provider: 'hooked' });
+    const { state } = await auth.signin.provider('hooked');
+    await auth.signin.providerCallback('hooked', 'auth-code-123', state, state);
 
-    await new Promise(resolve => setTimeout(resolve, 10));
-    expect(beforeOAuthCalled || true).toBe(true);
+    expect(beforeOAuthCalled).toBe(true);
+  });
+
+  it('should merge accounts if email already exists', async () => {
+    // 1. Create existing user with email
+    const existingUser = await auth.adapter.storeUser({
+      id: 'existing-123',
+      email: 'merge@example.com',
+      name: 'Existing User',
+      role: 'user'
+    });
+
+    await auth.use(
+      oauthPlugin({
+        providers: { google: createMockArcticProvider('google') },
+        userRepository: {
+          findByOAuthId: async () => null, // Not linked yet
+          findByEmail: async (email: string) => email === 'merge@example.com' ? existingUser : null,
+          findById: async (id: string) => id === 'existing-123' ? existingUser : null,
+          linkAccount: async (userId: string, provider: string, oauthId: string) => {
+            // Mock link capture
+          },
+          create: async (user: any) => { throw new Error('Should not create new user!') }
+        },
+        getProfile: async () => ({ id: 'google-999', email: 'merge@example.com' }),
+        mapOAuthProfile: (provider: string, profile: any) => ({
+          email: profile.email,
+          name: 'Merged Name'
+        })
+      })
+    );
+
+    const { state } = await auth.signin.provider('google');
+    const { user, token } = await auth.signin.providerCallback('google', 'code', state, state);
+
+    expect(user.id).toBe('existing-123'); // Should be the same user ID
+    expect(user.email).toBe('merge@example.com');
+    expect(token).toBeDefined();
   });
 });

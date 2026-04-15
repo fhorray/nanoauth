@@ -1,0 +1,183 @@
+/* 
+  NanoAuth - Nano-Engineering Aesthetic 🧪
+  A technical, precise, and blueprint-inspired design system.
+*/
+
+:root {
+  --bg: #050505;
+  --bg-dots: rgba(255, 255, 255, 0.05);
+  --border: #1a1a1a;
+  --text: #ffffff;
+  --text-dim: #777777;
+  --accent: #00d1ff; /* Nano Electric Cyan */
+  --accent-soft: rgba(0, 209, 255, 0.1);
+  --danger: #ff0055;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  border-radius: 0 !important;
+  transition: none !important;
+}
+
+body {
+  background-color: var(--bg);
+  background-image: radial-gradient(var(--bg-dots) 1px, transparent 0);
+  background-size: 24px 24px; /* Modular grid */
+  color: var(--text);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+.layout {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.container {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 5rem 2rem;
+  width: 100%;
+}
+
+/* 
+  CROSSHAIR BORDERS (The Identity Signature)
+  Boxes where borders extend 10px past the corners.
+*/
+.nano-module {
+  position: relative;
+  background: rgba(0, 0, 0, 0.8);
+  border: 1px solid var(--border);
+  padding: 2.5rem;
+  margin-bottom: 3rem;
+}
+
+.nano-module::before,
+.nano-module::after {
+  content: '';
+  position: absolute;
+  pointer-events: none;
+  background: var(--border);
+}
+
+/* Horizontal crosshairs */
+.nano-module::before {
+  top: -1px; bottom: -1px;
+  left: -15px; right: -15px;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  z-index: -1;
+}
+
+/* Vertical crosshairs */
+.nano-module::after {
+  left: -1px; right: -1px;
+  top: -15px; bottom: -15px;
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  background: transparent;
+  z-index: -1;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.8rem 1.5rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  width: 100%;
+  font-size: 10px;
+  position: relative;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: #000;
+  border-color: var(--accent);
+}
+
+.btn-danger {
+  color: var(--danger);
+  border-color: var(--danger);
+  background: rgba(255, 0, 85, 0.05);
+}
+
+input {
+  width: 100%;
+  padding: 1rem;
+  background: #000;
+  border: 1px solid var(--border);
+  color: var(--accent); /* Data entry in accent color */
+  margin-bottom: 1.5rem;
+  font-family: inherit;
+  font-size: 12px;
+}
+
+input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 10px var(--accent-soft);
+}
+
+.label {
+  display: block;
+  font-size: 9px;
+  font-weight: 800;
+  color: var(--accent);
+  text-transform: uppercase;
+  margin-bottom: 1rem;
+  letter-spacing: 0.25em;
+  opacity: 0.8;
+}
+
+.label::before {
+  content: ':: ';
+  color: var(--accent);
+}
+
+/* Technical Badge */
+.badge {
+  display: inline-block;
+  padding: 0.15rem 0.75rem;
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  background: var(--border);
+  color: var(--text-dim);
+  border-left: 2px solid var(--text-dim);
+}
+
+.badge-active {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-left: 2px solid var(--accent);
+}
+
+pre {
+  background: #020202;
+  padding: 2rem;
+  border: 1px solid var(--border);
+  overflow-x: auto;
+  font-size: 11px;
+  color: #00ffaa; /* Phosphor Green for data */
+}
+
+/* Layout Helpers */
+.flex { display: flex; }
+.justify-between { justify-content: space-between; }
+.items-center { align-items: center; }
+.gap-2 { gap: 2rem; }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }

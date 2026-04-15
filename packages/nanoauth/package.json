@@ -7,13 +7,19 @@
   "module": "./src/index.ts",
   "types": "./src/index.ts",
   "files": [
-    "src"
+    "dist",
+    "LICENSE"
   ],
   "exports": {
     ".": {
       "types": "./src/index.ts",
       "import": "./src/index.ts",
       "default": "./src/index.ts"
+    },
+    "./client": {
+      "types": "./src/client.ts",
+      "import": "./src/client.ts",
+      "default": "./src/client.ts"
     },
     "./plugins/session": {
       "types": "./src/plugins/session.ts",
@@ -30,18 +36,16 @@
       "import": "./src/plugins/oauth.ts",
       "default": "./src/plugins/oauth.ts"
     },
+    "./plugins/magic-link": {
+      "types": "./src/plugins/magic-link.ts",
+      "import": "./src/plugins/magic-link.ts",
+      "default": "./src/plugins/magic-link.ts"
+    },
     "./utils": {
       "types": "./src/utils/index.ts",
       "import": "./src/utils/index.ts",
       "default": "./src/utils/index.ts"
     }
-  },
-  "scripts": {
-    "build": "tsc",
-    "dev": "tsc --watch",
-    "clean": "Remove-Item -Path dist -Recurse -Force -ErrorAction SilentlyContinue",
-    "test": "bun test src tests --ignore-path dist",
-    "test:watch": "bun test src tests --ignore-path dist --watch"
   },
   "devDependencies": {
     "hono": "latest",
@@ -54,10 +58,12 @@
     "@oslojs/binary": "latest",
     "@oslojs/crypto": "latest",
     "@oslojs/encoding": "latest",
+    "@oslojs/jwt": "latest",
     "@oslojs/oauth2": "latest",
     "@oslojs/otp": "latest",
-    "@oslojs/jwt": "latest",
-    "@oslojs/webauthn": "latest"
+    "@oslojs/webauthn": "latest",
+    "arctic": "^3.7.0",
+    "nanostores": "^0.11.3"
   },
   "keywords": [
     "auth",

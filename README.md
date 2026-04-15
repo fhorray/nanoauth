@@ -270,82 +270,119 @@ export default app;
 
 ---
 
+## ⚡ React Native & Frontend: The Client SDK
+
+NanoAuth provides an ultra-lightweight, framework-agnostic Frontend Client powered by Nanostores. This handles reactivity, syncing state, and communicating with the generic web handler!
+
+```typescript
+import { createAuthClient } from 'nanoauth/client';
+
+// 1. Initialize the client (usually in a separate file like lib/auth.ts)
+export const authClient = createAuthClient({
+  baseURL: 'http://localhost:3000', // Your API URL
+});
+
+// 2. State is strictly defined without $ prefixes!
+// You can use these everywhere: React, Vue, Svelte, Vanilla JS.
+authClient.session.subscribe((session) => {
+  if (session.user) {
+    console.log(`Welcome back, ${session.user.name}`);
+  }
+});
+
+authClient.isLoading.subscribe((loading) => {
+  if (loading) console.log('Processing authentication...');
+});
+
+// 3. Simple, unified API to sign in and out
+await authClient.signIn('email', {
+  email: 'user@example.com',
+  password: '123',
+});
+
+await authClient.signOut();
+```
+
+---
+
 ## 🛠️ Building Custom Plugins
 
-The true power of NanoAuth lies in its pluggable architecture. Creating your own plugin is extremely simple. A plugin is just an object that implements the `Plugin` interface, which requires a `name` and a `setup` function.
+The true power of NanoAuth lies in its **declarative, plugin-first architecture**. Creating a plugin is about defining how your feature integrates with the auth lifecycle, what HTTP endpoints it needs, and what methods it exports to the developer.
 
-To provide the best Developer Experience (DX) and strict Type Safety without boilerplate, we provide the `definePlugin` and `createPlugin` helpers.
+To provide the best Developer Experience (DX), use the `definePlugin` helper. It provides perfect type inference for your configuration and the `auth` instance.
 
-Inside the `setup` function, you get access to the main `AuthCoreInstance`. This allows your plugin to:
+### The Anatomy of a Plugin
 
-1. **Listen to Events:** Use `auth.on('event', ...)` to trigger side-effects.
-2. **Read/Write State:** Use `auth.getState('token')` or `auth.setState('isLoading', true)`.
-3. **Inject or Override Methods:** Add new methods to the `auth` object or override placeholders like `auth.login`.
+A modern NanoAuth plugin consists of four main properties:
 
-### Example: A Magic Link Plugin
+1.  **`endpoints`**: Register custom HTTP routes (e.g., `/api/auth/magic/verify`) that the NanoAuth handler will process automatically.
+2.  **`hooks`**: Listen to lifecycle events. You can define them as an object or a function that receives the `auth` instance (perfect for avoiding scoping issues).
+3.  **`exports`**: Inject new methods into the `auth` object (e.g., `auth.sendMagicLink()`).
+4.  **`init`**: A lifecycle method called once during plugin registration for any setup logic.
 
-Here is a simplified example of how you might create a custom "Magic Link" plugin that adds a `sendMagicLink` method to your NanoAuth instance:
+### Example: Magic Link Plugin
+
+Here is how you would build a "Magic Link" plugin with its own verification endpoint:
 
 ```typescript
 import { definePlugin } from 'nanoauth';
 
-// 1. Define your Plugin Config interface
-export interface MagicLinkConfig {
-  sendEmail: (email: string, link: string) => Promise<void>;
-  generateToken: () => string;
-}
-
-// 2. Create the Plugin Factory using the Helper
-// This gives you perfect autocomplete for 'config' and 'auth'
 export const magicLinkPlugin = definePlugin<MagicLinkConfig>((config) => ({
-  name: 'magic-link', // Must be unique
+  name: 'magic-link',
 
-  // 3. The setup function is called once during initialization
-  async setup(auth) {
-    // Inject a brand new method into the auth instance
-    auth.sendMagicLink = async (email: string) => {
-      try {
-        auth.setState('isLoading', true); // Update internal state
+  // 1. Register a custom GET endpoint for verification
+  endpoints: {
+    verify: {
+      path: '/magic/verify',
+      method: 'GET',
+      handler: async (req, auth) => {
+        const url = new URL(req.url);
+        const token = url.searchParams.get('token');
 
-        const token = config.generateToken();
-        const link = `https://myapp.com/auth/verify?token=${token}`;
-
-        await config.sendEmail(email, link);
-
-        auth.setState('isLoading', false);
-      } catch (error) {
-        auth.setState('error', error);
-        auth.setState('isLoading', false);
-
-        // Emit a reactive event if things fail
-        auth.emit('onError', error);
-      }
-    };
+        // Logic to verify token and sign in...
+        return new Response(JSON.stringify({ success: true }));
+      },
+    },
   },
+
+  // 2. Register hooks to perform side effects
+  // Using a function allows you to access 'auth' directly!
+  hooks: (auth) => ({
+    afterSignin: async ({ user }) => {
+      console.log(`User ${user.email} signed in via Magic Link!`);
+    },
+  }),
+
+  // 3. Export methods that will be available on the auth instance
+  exports: (auth) => ({
+    sendMagicLink: async (email: string) => {
+      auth.setState('isLoading', true);
+      const token = config.generateToken();
+      const link = `http://localhost:3000/api/auth/magic/verify?token=${token}`;
+
+      await config.sendEmail(email, link);
+      auth.setState('isLoading', false);
+    },
+  }),
 }));
 ```
 
-> **Note:** If your plugin doesn't need external configuration, you can use `createPlugin({ name: '...', setup(auth) { ... } })` directly!
+### 🚀 Usage
 
-**How to use it:**
+Once registered, your plugin methods are available with full TypeScript autocomplete:
 
 ```typescript
-import { nanoauth } from 'nanoauth';
-import { magicLinkPlugin } from './my-plugins/magic-link';
-
 const auth = nanoauth({
   adapter: myAdapter,
   plugins: [
     magicLinkPlugin({
-      generateToken: () => crypto.randomUUID(),
-      sendEmail: async (email, link) => {
-        console.log(`Sending login link to ${email}: ${link}`);
-      },
+      sendEmail: myEmailProvider,
+      generateToken: () => '...',
     }),
   ],
 });
 
-// The custom method is now available!
+// Fully typed!
 await auth.sendMagicLink('user@example.com');
 ```
 

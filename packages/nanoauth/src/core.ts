@@ -13,70 +13,84 @@ import { handleRequest } from './handler'
  * Manages reactive state and allows extension via plugins
  */
 export class AuthCore<TUser extends User = User> implements AuthCoreInstance<TUser> {
-  private state: Map<string, any> = new Map()
-  private observers: Map<string, Set<Function>> = new Map()
   private hooks: Map<string, Function[]> = new Map()
-  protected adapter: AuthAdapter<TUser>
-  protected config: AuthConfig
+  public adapter: AuthAdapter<TUser>
+  public config: AuthConfig
+
+  public signin: any
+  public signup: any
+  public signout: any
+  public verify: any
+  public endpoints: Record<string, any> = {}
 
   constructor(adapter: AuthAdapter<TUser>, config?: AuthConfig) {
     this.adapter = adapter
     this.config = config ?? {}
-    this.initializeDefaultState()
+
+    // Create proxies for auth methods to handle "not implemented" errors gracefully
+    this.signin = this.createUnimplementedProxy('signin')
+    this.signup = this.createUnimplementedProxy('signup')
+    this.signout = this.createUnimplementedProxy('signout')
+    this.verify = this.createUnimplementedProxy('verify')
   }
 
   /**
-   * Initialize default state
+   * Helper to create a proxy that throws for missing auth methods
    */
-  private initializeDefaultState(): void {
-    this.state.set('user', null)
-    this.state.set('isAuthenticated', false)
-    this.state.set('isLoading', false)
-    this.state.set('error', null)
-    this.state.set('token', null)
-    this.state.set('metadata', {})
-  }
-
-  /**
-   * Observe state changes
-   * @returns function to unsubscribe
-   */
-  onChange(key: string, callback: (value: any) => void): () => void {
-    if (!this.observers.has(key)) {
-      this.observers.set(key, new Set())
-    }
-    this.observers.get(key)!.add(callback)
-
-    // Return unsubscribe
-    return () => {
-      this.observers.get(key)?.delete(callback)
-    }
-  }
-
-  /**
-   * Get current state
-   */
-  async getState<T = any>(key: string): Promise<T | undefined> {
-    return this.state.get(key) as T | undefined
-  }
-
-  /**
-   * Update state (protected for plugins)
-   */
-  protected setState(key: string, value: any): void {
-    this.state.set(key, value)
-    // Notify observers
-    this.observers.get(key)?.forEach((callback) => {
-      try {
-        callback(value)
-      } catch (error) {
-        if (this.config.logger) {
-          this.config.logger.error(`Error in observer for key "${key}":`, error)
-        } else {
-          console.error(`Error in observer for key "${key}":`, error)
+  private createUnimplementedProxy(namespace: string): Record<string, Function> {
+    const target: Record<string, Function> = {}
+    return new Proxy(target, {
+      get: (obj, prop) => {
+        if (typeof prop === 'string' && prop in obj) return obj[prop]
+        if (prop === 'then' || prop === 'toJSON' || typeof prop === 'symbol') return undefined
+        return (...args: any[]) => {
+          throw new Error(`[NanoAuth] auth.${namespace}.${String(prop)} is not implemented. Did you forget to load the necessary plugin?`)
         }
-      }
+      },
+      set: (obj, prop, value) => {
+        if (typeof prop === 'string') {
+          obj[prop] = value
+          return true
+        }
+        return false
+      },
+      has: (obj, prop) => prop in obj
     })
+  }
+
+  /**
+   * Extract session from request securely
+   */
+  async getSession(request: Request | Headers): Promise<{ user: TUser | null, token: string | null }> {
+    const headers = request instanceof Headers ? request : request.headers;
+    const cookieHeader = headers.get('Cookie');
+    if (!cookieHeader) return { user: null, token: null };
+
+    // Simple cookie parser
+    const cookies = Object.fromEntries(
+      (cookieHeader || '').split(';').map(v => v.split('=')).map(([k, v]) => [k?.trim(), decodeURIComponent(v || '')])
+    );
+
+    const token = cookies[this.config.handler?.cookieName || 'auth_token'];
+    if (!token) return { user: null, token: null };
+
+    try {
+      // Decode JWT payload without verifying (verification happens in adapter)
+      const base64Url = token.split('.')[1];
+      if (!base64Url) return { user: null, token: null };
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const payload = JSON.parse(Buffer.from(base64, 'base64').toString());
+
+      if (this.adapter.validateToken) {
+        const isValid = await this.adapter.validateToken(token);
+        if (!isValid) return { user: null, token: null };
+      }
+
+      const user = await this.adapter.getUser(payload.userId);
+      return { user: user as TUser | null, token };
+    } catch {
+      return { user: null, token: null };
+    }
   }
 
   /**
@@ -104,7 +118,7 @@ export class AuthCore<TUser extends User = User> implements AuthCoreInstance<TUs
   /**
    * Emit hooks for events
    */
-  protected emit(event: string, ...args: any[]): void {
+  emit(event: string, ...args: any[]): void {
     this.hooks.get(event)?.forEach((callback) => {
       try {
         callback(...args)
@@ -119,56 +133,89 @@ export class AuthCore<TUser extends User = User> implements AuthCoreInstance<TUs
   }
 
   /**
-   * Add plugin
+   * Use a plugin
+   * @param plugin Plugin to use
+   * @returns AuthCore
+   * @example
+   * auth.use(emailPasswordPlugin())
    */
   use(plugin: Plugin<TUser>): this {
-    plugin.setup(this)
-    return this
-  }
+    if (typeof plugin.init === 'function') {
+      const initResult = plugin.init(this);
+      if (initResult instanceof Promise) {
+        initResult.catch(err => {
+          this.config.logger?.error(`[NanoAuth] Plugin "${plugin.name}" failed to initialize:`, err);
+        });
+      }
+    }
 
-  /**
-   * Default methods (must be implemented by plugins)
-   */
+    if (plugin.hooks) {
+      const hooks = typeof plugin.hooks === 'function' ? plugin.hooks(this as any) : plugin.hooks;
+      for (const [event, callback] of Object.entries(hooks)) {
+        if (typeof callback === 'function') {
+          this.on(event as any, callback as any);
+        }
+      }
+    }
 
-  async login(emailOrData: any, password?: string): Promise<TUser> {
-    throw new Error(
-      'Method "login" not implemented. Install email-password plugin using: auth.use(emailPasswordPlugin())'
-    )
-  }
+    if (plugin.endpoints) {
+      for (const [key, endpoint] of Object.entries(plugin.endpoints)) {
+        this.endpoints[key] = endpoint;
+      }
+    }
 
-  async logout(): Promise<void> {
-    throw new Error('Method "logout" not implemented. Install session plugin using: auth.use(sessionPlugin())')
-  }
+    let exports: any;
+    if (typeof plugin.exports === 'function') {
+      exports = plugin.exports(this);
+    } else if (typeof plugin.setup === 'function') {
+      exports = plugin.setup(this);
+    }
 
-  async signup(emailOrData: any, password?: string, name?: string): Promise<TUser> {
-    throw new Error(
-      'Method "signup" not implemented. Install email-password plugin using: auth.use(emailPasswordPlugin())'
-    )
+    const namespaces = ['signin', 'signup', 'signout', 'verify'];
+
+    const handleExports = (res: any) => {
+      if (res && typeof res === 'object') {
+        for (const ns of namespaces) {
+          if (res[ns] && typeof res[ns] === 'object') {
+            Object.assign((this as any)[ns], res[ns]);
+          }
+        }
+
+        for (const key of Object.keys(res)) {
+          if (!namespaces.includes(key) && (this as any)[key] !== res[key]) {
+            (this as any)[key] = res[key];
+          }
+        }
+      }
+    };
+
+    if (exports instanceof Promise) {
+      exports.then(handleExports).catch(err => {
+        this.config.logger?.error(`[NanoAuth] Plugin "${plugin.name}" failed to load exports:`, err);
+      });
+    } else {
+      handleExports(exports);
+    }
+
+    return this;
   }
 
   async handler(request: Request): Promise<Response> {
     throw new Error('Handler not initialized. Use nanoauth() factory to create the instance.')
   }
 
-  /**
-   * Allow adding custom methods via plugins
-   */
   [key: string]: any
 }
 
-/**
- * Factory to create authentication instance
- */
 export function createAuth<TUser extends User = User>(
   adapter: AuthAdapter<TUser>,
   config?: AuthConfig
 ): AuthCore<TUser> {
+  config = config ?? {}
+  config.secret = config.secret || process.env.NANOAUTH_SECRET || 'unsafe-dev-secret';
   return new AuthCore<TUser>(adapter, config)
 }
 
-/**
- * Modern declarative factory (Better Auth style)
- */
 export function nanoauth<
   TUser extends User = User,
   TPlugins extends Plugin<TUser, any>[] = Plugin<TUser, any>[]
@@ -176,8 +223,8 @@ export function nanoauth<
   options: NanoAuthOptions<TUser, TPlugins>
 ): AuthCore<TUser> & UnionToIntersection<ExtractPluginExports<TPlugins[number]>> {
   const { adapter, plugins, hooks } = options
+  options.secret = options.secret || process.env.NANOAUTH_SECRET || 'unsafe-dev-secret';
 
-  // 1. Wrap adapter with database interceptors if hooks exist
   const wrappedAdapter = { ...adapter }
 
   if (hooks) {
@@ -192,34 +239,23 @@ export function nanoauth<
       const userHook = (hooks as any)[hookName]
       if (userHook && typeof (adapter as any)[adapterMethod] === 'function') {
         const originalMethod = (adapter as any)[adapterMethod].bind(adapter)
-
-          // Replace in the wrapped adapter
           ; (wrappedAdapter as any)[adapterMethod] = async (...args: any[]) => {
             let nextCalled = false
-
             const next = async (...nextArgs: any[]) => {
               nextCalled = true
-              // If user passes new arguments, use them, otherwise use original args
               const finalArgs = nextArgs.length > 0 ? nextArgs : args
               return originalMethod(...finalArgs)
             }
-
             const result = await userHook(...args, next)
-
-            if (!nextCalled) {
-              throw new Error(`Fatal Error: Interceptor hook '${hookName}' finished execution without calling next(). This blocks database operations.`)
-            }
-
+            if (!nextCalled) throw new Error(`Interceptor hook '${hookName}' missed next().`)
             return result
           }
       }
     }
   }
 
-  // 2. Create core instance
   const auth = new AuthCore<TUser>(wrappedAdapter, options)
 
-  // 3. Register reactive hooks (Events)
   if (hooks) {
     const events = ['afterSignin', 'afterSignup', 'afterLogout', 'onError']
     for (const event of events) {
@@ -229,38 +265,28 @@ export function nanoauth<
     }
   }
 
-  // 4. Load plugins
   if (plugins && Array.isArray(plugins)) {
     for (const plugin of plugins) {
       auth.use(plugin)
     }
   }
 
-  // 5. Automatic Session Persistence (Backend Sync)
   if (typeof (wrappedAdapter as any).saveSession === 'function') {
     auth.on('afterSignin', async ({ user, token }) => {
-      if (token && user) {
-        await (wrappedAdapter as any).saveSession(token, { userId: user.id, ...user })
-      }
+      if (token && user) await (wrappedAdapter as any).saveSession(token, { userId: user.id, ...user })
     })
 
     auth.on('afterSignup', async ({ user, token }) => {
-      if (token && user) {
-        await (wrappedAdapter as any).saveSession(token, { userId: user.id, ...user })
-      }
+      if (token && user) await (wrappedAdapter as any).saveSession(token, { userId: user.id, ...user })
     })
 
     auth.on('afterLogout', async () => {
-      const token = await auth.getState<string>('token')
-      if (token && typeof (wrappedAdapter as any).deleteSession === 'function') {
-        await (wrappedAdapter as any).deleteSession(token)
-      }
+      console.warn('[NanoAuth] Session cleanup skipped - stateless core has no global token track.');
     })
   }
 
-  // 6. Bind standard Web Handle
   const handlerOpts = options.handler || {}
     ; (auth as any).handler = (request: Request) => handleRequest(request, auth, handlerOpts)
 
-  return auth as AuthCore<TUser> & UnionToIntersection<ExtractPluginExports<TPlugins[number]>>
+  return auth as any
 }

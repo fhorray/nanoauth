@@ -5,7 +5,7 @@
  */
 
 import { AuthCore } from "./core"
-import { CookieOptions } from "./utils/cookie"
+import type { CookieOptions } from "./utils/cookie"
 
 /**
  * Basic user - extend as needed
@@ -16,17 +16,6 @@ export interface User {
   name: string
   role: string
   [key: string]: any
-}
-
-/**
- * Authentication state
- */
-export interface AuthState<TUser extends User = User> {
-  user: TUser | null
-  isLoading: boolean
-  error: Error | null
-  token: string | null
-  metadata: Record<string, any>
 }
 
 /**
@@ -56,6 +45,17 @@ export interface AuthLogger {
 export interface AuthConfig {
   debug?: boolean
   logger?: AuthLogger
+  secret?: string
+  handler?: NanoAuthHandlerOptions
+}
+
+/**
+ * Custom logic for specific URL path
+ */
+export interface AuthEndpoint {
+  path: string
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'ALL'
+  handler: (request: Request, auth: AuthCoreInstance<any>, config: NanoAuthHandlerOptions) => Promise<Response>
 }
 
 /**
@@ -63,7 +63,12 @@ export interface AuthConfig {
  */
 export interface Plugin<TUser extends User = User, TExports = {}> {
   name: string
-  setup(auth: AuthCoreInstance<TUser>): void | Promise<void> | TExports | Promise<TExports>
+  id?: string
+  endpoints?: Record<string, AuthEndpoint>
+  hooks?: Partial<NanoAuthHooks<TUser>> | ((auth: AuthCoreInstance<TUser>) => Partial<NanoAuthHooks<TUser>>)
+  exports?: (auth: AuthCoreInstance<TUser>) => TExports | Promise<TExports>
+  init?: (auth: AuthCoreInstance<TUser>) => void | Promise<void>
+  setup?(auth: AuthCoreInstance<TUser>): void | Promise<void> | TExports | Promise<TExports>
 }
 
 /**
@@ -81,14 +86,15 @@ export interface AuthEvents<TUser extends User = User> {
  * Authentication core
  */
 export interface AuthCoreInstance<TUser extends User = User> {
-  // State
-  onChange(key: string, callback: (value: any) => void): () => void
-  getState<T = any>(key: string): Promise<T | undefined>
+  // Stateless Session Access
+  getSession(request: Request | Headers): Promise<{ user: TUser | null, token: string | null }>
+  
   // Hooks / Events
   on<K extends keyof AuthEvents<TUser> & string>(
     event: K,
     callback: (data: AuthEvents<TUser>[K]) => void | Promise<void>
   ): () => void
+  emit(event: string, ...args: any[]): void
 
   // Generic Handler (Web Standard Request/Response)
   handler(request: Request): Promise<Response>
@@ -96,10 +102,18 @@ export interface AuthCoreInstance<TUser extends User = User> {
   // Plugins
   use(plugin: Plugin<TUser>): AuthCore<TUser>
 
-  // Standard methods (implemented by plugins)
-  login(emailOrData: any, password?: string): Promise<TUser>
-  logout(): Promise<void>
-  signup(emailOrData: any, password?: string, name?: string): Promise<TUser>
+  // Namespaces (extended by plugins)
+  signin: any
+  signup: any
+  signout: any
+  verify?: any
+
+  /** Registry of custom endpoints registered by plugins */
+  endpoints: Record<string, AuthEndpoint>
+
+  // Config
+  adapter: AuthAdapter<TUser>
+  config: AuthConfig
 
   // Customizations
   [key: string]: any
@@ -109,28 +123,20 @@ export interface AuthCoreInstance<TUser extends User = User> {
  * Unified Hooks definition
  */
 export interface NanoAuthHooks<TUser extends User = User> {
-  // Reactive Events (Fire and Forget)
   afterSignin?: (data: { user: TUser; token: string; provider?: string }) => void | Promise<void>
   afterSignup?: (data: { user: TUser; token: string }) => void | Promise<void>
   afterLogout?: () => void | Promise<void>
   onError?: (error: Error) => void | Promise<void>
 
-  // Database Interceptors (Blocking, requires next())
   onGetUser?: (userId: string, next: (userId: string) => Promise<TUser | null>) => Promise<TUser | null>
   onSaveSession?: (sessionId: string, data: any, next: (sessionId: string, data: any) => Promise<void>) => Promise<void>
   onValidateToken?: (token: string, next: (token: string) => Promise<boolean>) => Promise<boolean>
   onDeleteSession?: (sessionId: string, next: (sessionId: string) => Promise<void>) => Promise<void>
 }
 
-/**
- * Helper types to extract exports from plugins array
- */
 export type UnionToIntersection<U> = (U extends any ? (k: U) => void : never) extends (k: infer I) => void ? I : never;
-export type ExtractPluginExports<T> = T extends Plugin<any, infer E> ? E : {};
+export type ExtractPluginExports<T> = T extends Plugin<any, infer E> ? Awaited<E> : {};
 
-/**
- * Main configuration options for nanoauth factory
- */
 export interface NanoAuthOptions<
   TUser extends User = User,
   TPlugins extends Plugin<TUser, any>[] = Plugin<TUser, any>[]
@@ -139,19 +145,14 @@ export interface NanoAuthOptions<
   plugins?: [...TPlugins]
   hooks?: NanoAuthHooks<TUser>
   handler?: NanoAuthHandlerOptions
+  secret?: string
 }
 
-/**
- * Basic credentials
- */
 export interface Credentials {
   email: string
   password: string
 }
 
-/**
- * Signup data
- */
 export interface SignupData {
   email: string
   password: string
@@ -159,18 +160,12 @@ export interface SignupData {
   [key: string]: any
 }
 
-/**
- * Session data
- */
 export interface SessionData<TUser extends User = User> {
   user: TUser
   token: string
   [key: string]: any
 }
 
-/**
- * Configuration for the generic Web Standard Handler
- */
 export interface NanoAuthHandlerOptions {
   cookieName?: string
   cookieOptions?: CookieOptions

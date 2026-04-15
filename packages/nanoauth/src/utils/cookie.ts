@@ -43,3 +43,21 @@ export function serializeCookie(name: string, value: string, options: CookieOpti
 
   return cookie
 }
+/**
+ * Parse cookie header string into an object
+ */
+export function parseCookies(cookieHeader: string | null): Record<string, string> {
+  const cookies: Record<string, string> = {}
+  if (!cookieHeader) return cookies
+
+  cookieHeader.split(';').forEach((item) => {
+    const parts = item.split('=')
+    const key = parts[0]?.trim()
+    const value = parts[1]?.trim()
+    if (key && value) {
+      cookies[key] = decodeURIComponent(value)
+    }
+  })
+
+  return cookies
+}

@@ -1,6 +1,14 @@
-import { serializeCookie } from './utils/cookie'
+import { serializeCookie, parseCookies } from './utils/cookie'
 import type { AuthCoreInstance, User, NanoAuthHandlerOptions } from './types'
 import { AuthenticationError, SecurityError, ValidationError } from './errors'
+
+/**
+ * Helper to append query parameters securely to a URL
+ */
+function appendQueryParam(url: string, key: string, value: string): string {
+  const separator = url.includes('?') ? '&' : '?';
+  return `${url}${separator}${key}=${encodeURIComponent(value)}`;
+}
 
 export async function handleRequest<TUser extends User = User>(
   request: Request,
@@ -24,55 +32,70 @@ export async function handleRequest<TUser extends User = User>(
   const successRedirect = config.successRedirect ?? '/'
   const errorRedirect = config.errorRedirect ?? '/auth/error'
 
-  // Route matching based on the end of the pathname
-  // This allows it to work under any prefix (e.g., /api/auth/login or /auth/login)
+  // --- PLUGIN CUSTOM ENDPOINTS ---
+  if (auth.endpoints) {
+    for (const endpoint of Object.values(auth.endpoints)) {
+      if (pathname.endsWith(endpoint.path)) {
+        if (endpoint.method === 'ALL' || endpoint.method === method) {
+          return endpoint.handler(request, auth, config);
+        }
+      }
+    }
+  }
 
-  if (method === 'POST' && pathname.endsWith('/signup')) {
+  const matchActionAndStrategy = pathname.match(/\/(signin|signup|signout)(?:\/([^/]+))?$/)
+
+  if (method === 'POST' && matchActionAndStrategy) {
+    const action = matchActionAndStrategy[1] as 'signin' | 'signup' | 'signout'
+    let strategy = matchActionAndStrategy[2]
+
     try {
-      const body = await request.json()
-      const user = await auth.signup(body)
-      const token = await auth.getState<string>('token')
+      const body = action !== 'signout' ? await request.json() : {}
 
-      const response = new Response(JSON.stringify({ user, token }), {
+      if (!strategy) {
+        strategy = body.strategy || 'email'
+      }
+
+      const currentStrategy = strategy!
+      let user: TUser | undefined;
+      let token: string | undefined;
+
+      if (action === 'signout') {
+        if (auth.signout.session) {
+          await auth.signout.session()
+        } else if (auth.signout[currentStrategy]) {
+          await auth.signout[currentStrategy]()
+        }
+      } else {
+        const methodToCall = auth[action]?.[currentStrategy]
+        if (typeof methodToCall !== 'function') {
+          throw new Error(`Strategy "${currentStrategy}" is not supported for ${action}.`);
+        }
+        
+        // Strategy methods should now return { user, token }
+        const result = await methodToCall(body)
+        user = result.user || result;
+        token = result.token;
+      }
+
+      let responsePayload: any = { message: action === 'signout' ? 'Logged out' : 'Success' }
+      if (user) responsePayload.user = user
+      if (token) responsePayload.token = token
+
+      const response = new Response(JSON.stringify(responsePayload), {
         status: 200,
         headers: { 'Content-Type': 'application/json' }
       })
 
-      if (token) {
+      if (action === 'signout') {
+        response.headers.append('Set-Cookie', serializeCookie(cookieName, '', { ...cookieOptions, maxAge: 0 }))
+      } else if (token) {
         response.headers.append('Set-Cookie', serializeCookie(cookieName, token, cookieOptions))
       }
 
       return response
     } catch (error: any) {
       let status = 400;
-      if (error instanceof ValidationError) status = 400;
-      else if (error instanceof SecurityError) status = 403;
-
-      return new Response(JSON.stringify({ error: error.message }), {
-        status,
-        headers: { 'Content-Type': 'application/json' }
-      })
-    }
-  }
-
-  if (method === 'POST' && pathname.endsWith('/login')) {
-    try {
-      const body = await request.json()
-      const user = await auth.login(body)
-      const token = await auth.getState<string>('token')
-
-      const response = new Response(JSON.stringify({ user, token, message: 'Welcome back!' }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' }
-      })
-
-      if (token) {
-        response.headers.append('Set-Cookie', serializeCookie(cookieName, token, cookieOptions))
-      }
-
-      return response
-    } catch (error: any) {
-      let status = 401;
       if (error instanceof AuthenticationError) status = 401;
       else if (error instanceof ValidationError) status = 400;
       else if (error instanceof SecurityError) status = 403;
@@ -84,41 +107,16 @@ export async function handleRequest<TUser extends User = User>(
     }
   }
 
-  if (method === 'POST' && pathname.endsWith('/logout')) {
-    try {
-      await auth.logout()
-
-      const response = new Response(JSON.stringify({ message: 'Logged out' }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' }
-      })
-
-      // Delete cookie
-      response.headers.append(
-        'Set-Cookie',
-        serializeCookie(cookieName, '', { ...cookieOptions, maxAge: 0 })
-      )
-
-      return response
-    } catch (error: any) {
-      return new Response(JSON.stringify({ error: error.message }), {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' }
-      })
-    }
-  }
-
-  // --- NATIVE OAUTH ROUTES ---
+  // --- NATIVE OAUTH ROUTES (GET) ---
   if (method === 'GET' && pathname.match(/\/signin\/([^/]+)$/)) {
     const match = pathname.match(/\/signin\/([^/]+)$/)
     const provider = match ? match[1] : null
-    const oauthAuth = auth as any
 
     if (!provider) {
       return new Response('Provider not specified', { status: 400 })
     }
 
-    if (typeof oauthAuth.getOAuthAuthorizationUrl !== 'function') {
+    if (!auth.signin.provider) {
       return new Response(JSON.stringify({ error: 'OAuth plugin not installed or misconfigured' }), {
         status: 500,
         headers: { 'Content-Type': 'application/json' }
@@ -126,10 +124,23 @@ export async function handleRequest<TUser extends User = User>(
     }
 
     try {
-      const authUrl = oauthAuth.getOAuthAuthorizationUrl(provider)
-      return Response.redirect(authUrl, 302)
+      const { url: authUrl, state } = await auth.signin.provider(provider)
+      
+      const response = Response.redirect(authUrl, 302)
+      
+      if (state) {
+          response.headers.append('Set-Cookie', serializeCookie(`oauth_state_${provider}`, state, {
+              path: '/',
+              httpOnly: true,
+              secure: process.env.NODE_ENV === 'production',
+              sameSite: 'Lax',
+              maxAge: 60 * 10 
+          }))
+      }
+      
+      return response
     } catch (error: any) {
-      return Response.redirect(`${errorRedirect}?error=${encodeURIComponent(error.message)}`, 302)
+      return Response.redirect(appendQueryParam(errorRedirect, 'error', error.message), 302)
     }
   }
 
@@ -138,24 +149,28 @@ export async function handleRequest<TUser extends User = User>(
     const provider = match ? match[1] : null
     const code = url.searchParams.get('code')
     const state = url.searchParams.get('state')
-    const oauthAuth = auth as any
 
     if (!provider) {
       return new Response('Provider not specified', { status: 400 })
     }
 
     if (!code) {
-      return Response.redirect(`${errorRedirect}?error=missing_code`, 302)
+      return Response.redirect(appendQueryParam(errorRedirect, 'error', 'missing_code'), 302)
     }
 
     try {
-      // The plugin handles the exchange, user creation/finding, and state updates
-      await oauthAuth.handleOAuthCallback(provider, code, state!)
-
-      // Get the generated token from state (set by the plugin)
-      const token = await auth.getState<string>('token')
+      if (!auth.signin.providerCallback) {
+        throw new Error('OAuth plugin not installed or misconfigured (missing providerCallback)')
+      }
+      
+      const cookies = parseCookies(request.headers.get('Cookie'))
+      const savedState = cookies[`oauth_state_${provider}`]
+      
+      const { user, token } = await auth.signin.providerCallback(provider, code, state!, savedState)
 
       const response = Response.redirect(successRedirect, 302)
+
+      response.headers.append('Set-Cookie', serializeCookie(`oauth_state_${provider}`, '', { path: '/', maxAge: 0 }))
 
       if (token) {
         response.headers.append('Set-Cookie', serializeCookie(cookieName, token, cookieOptions))
@@ -163,13 +178,12 @@ export async function handleRequest<TUser extends User = User>(
 
       return response
     } catch (error: any) {
-      return Response.redirect(`${errorRedirect}?error=${encodeURIComponent(error.message)}`, 302)
+      return Response.redirect(appendQueryParam(errorRedirect, 'error', error.message), 302)
     }
   }
 
   if (method === 'GET' && pathname.endsWith('/session')) {
-    const user = await auth.getState<TUser>('user')
-    const token = await auth.getState<string>('token')
+    const { user, token } = await auth.getSession(request);
     return new Response(JSON.stringify({ user, token }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' }
