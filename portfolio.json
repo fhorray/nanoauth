@@ -1,0 +1,14 @@
+{
+  "enabled": true,
+  "priority": 4,
+  "tags": ["typescript", "nodejs"],
+  "pt": {
+    "title": "NanoAuth",
+    "description": "A biblioteca de autenticação mais leve, plugável e amigável para a web moderna."
+  },
+  "en": {
+    "title": "NanoAuth",
+    "description": "The most lightweight, pluggable, and developer-friendly authentication library for the modern web."
+  },
+  "cover": "/placeholder.png"
+}
